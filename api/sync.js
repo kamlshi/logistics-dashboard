@@ -1,7 +1,12 @@
 /**
- * Vercel Serverless Function - 物流看板实时同步接口
+ * Vercel Edge Function - 物流看板实时同步接口
  * 部署后访问路径：/api/sync
+ * 使用 Edge Runtime，无 10 秒超时限制
  */
+
+export const config = {
+  runtime: 'edge',
+};
 
 const HEADER_MAP = {
   '物流状态': 'status', '合同号': 'contractNo', '提单号(BL#)': 'blNo',
@@ -21,20 +26,37 @@ const NUMERIC_FIELDS = new Set(['containerCount','packages','netWeight','grossWe
 const EXPORT_API = 'https://docs.qq.com/v1/export/async_export';
 const QUERY_API = 'https://docs.qq.com/v1/export/query_progress';
 
-export default async function handler(req, res) {
+export default async function handler(req) {
   const origin = process.env.ALLOW_ORIGIN || '*';
-  res.setHeader('Access-Control-Allow-Origin', origin);
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Cache-Control', 'no-store');
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Cache-Control': 'no-store',
+  };
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'GET') return res.status(405).json({ error: 'Method Not Allowed' });
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 200, headers: corsHeaders });
+  }
+
+  if (req.method !== 'GET') {
+    return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
+      status: 405,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
 
   try {
     const data = await fetchLatestData();
-    res.status(200).json({ orders: data, updatedAt: new Date().toISOString(), count: data.length });
+    return new Response(
+      JSON.stringify({ orders: data, updatedAt: new Date().toISOString(), count: data.length }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    return new Response(
+      JSON.stringify({ error: e.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 }
 
@@ -52,7 +74,7 @@ async function fetchLatestData() {
     'Content-Type': 'application/x-www-form-urlencoded',
   };
 
-  // 创建导出任务
+  // 1. 创建导出任务
   const exportBody = new URLSearchParams({ docId: sheetId, exportType: 'csv', sheetId: tabName });
   const exportResp = await fetch(EXPORT_API, { method: 'POST', headers, body: exportBody.toString() });
   const exportResult = await exportResp.json();
@@ -60,9 +82,9 @@ async function fetchLatestData() {
 
   const operationId = exportResult.operationID;
 
-  // 轮询进度
+  // 2. 轮询导出进度（最多约24秒）
   let downloadUrl = null;
-  for (let i = 0; i < 15; i++) {
+  for (let i = 0; i < 30; i++) {
     await new Promise(r => setTimeout(r, 800));
     const queryResp = await fetch(`${QUERY_API}?operationID=${encodeURIComponent(operationId)}`, { headers });
     const q = await queryResp.json();
@@ -74,9 +96,11 @@ async function fetchLatestData() {
   }
   if (!downloadUrl) throw new Error('导出超时');
 
-  // 下载CSV
+  // 3. 下载 CSV
   const csvResp = await fetch(downloadUrl);
   const csvText = await csvResp.text();
+
+  // 4. 解析 + 映射
   return parseAndMapCSV(csvText);
 }
 
