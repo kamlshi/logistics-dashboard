@@ -4,13 +4,11 @@ on:
   # 手动触发（随时可以点按钮跑一次）
   workflow_dispatch:
 
-  # 定时触发：每天北京时间 09:00 和 17:00 各同步一次
-  # cron 是 UTC 时间，北京时间 = UTC + 8
-  #   01:00 UTC = 09:00 北京（早上上班前同步）
-  #   09:00 UTC = 17:00 北京（下班前同步）
+  # 定时触发：每 2 小时同步一次（UTC 时间，北京时间 = UTC + 8）
+  #   0,2,4,6,8,10,12,14,16,18,20,22 点 UTC
+  #   对应北京时间 8,10,12,14,16,18,20,22,0,2,4,6 点
   schedule:
-    - cron: '0 1 * * *'
-    - cron: '0 9 * * *'
+    - cron: '0 */2 * * *'
 
 # 允许写入仓库（用于提交更新后的 HTML）
 permissions:
@@ -67,3 +65,11 @@ jobs:
             git push
             echo "✅ 已推送，GitHub Pages 将自动重新部署"
           fi
+
+      - name: 部署到 Surge（国内访问更快）
+        env:
+          SURGE_TOKEN: ${{ secrets.SURGE_TOKEN }}
+        run: |
+          npm install -g surge
+          surge . logistics-zhanzhu.surge.sh --token $SURGE_TOKEN
+          echo "✅ 已部署到 Surge: https://logistics-zhanzhu.surge.sh"
