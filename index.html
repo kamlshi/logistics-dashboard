@@ -987,7 +987,7 @@ let lastFetchTime = '2026-07-24T11:55:10.364516';
 // ===== FETCH =====
 // 实时同步 API 地址（Cloudflare Worker 中转）
 // 部署 Worker 后改成你的实际地址，例如：https://logistics-sync.xxx.workers.dev/api/sync
-const SYNC_API_URL = 'https://YOUR-WORKER-NAME.workers.dev/api/sync';
+const SYNC_API_URL = 'https://logistics-dashboard-zeta.vercel.app/api/sync';
 
 // 统一走 Worker API：服务端实时重新抓取腾讯文档并返回最新数据
 async function fetchDataJSON() {
