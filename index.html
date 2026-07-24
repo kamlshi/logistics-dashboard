@@ -1,0 +1,1506 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>物流进度看板 Logistics Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-accent: #ea580c;
+      --secondary: #3b82f6;
+      --secondary-accent: #fdba74;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --card-bg2: #f1f5f9;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --border: rgba(203, 213, 225, 0.6);
+      --glow-blue: rgba(37, 99, 235, 0.1);
+      --glow-orange: rgba(234, 88, 12, 0.1);
+      --status-transit: #ea580c;
+      --status-shipped: #3b82f6;
+      --status-delivered: #2563eb;
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* 白色主题下的卡片阴影 */
+    .card-shadow {
+      box-shadow: var(--shadow-md);
+      transition: box-shadow 0.2s ease;
+    }
+    .card-shadow:hover {
+      box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--secondary); border-radius: 3px; }
+
+    /* ===== BACKGROUND GRID ===== */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(148,163,184,0.15) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148,163,184,0.15) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ===== CONTAINER ===== */
+    .container {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 24px 24px 48px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ===== HEADER ===== */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 32px;
+      padding: 20px 28px;
+      background: var(--card-bg);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-md);
+      animation: slideDown 0.6s ease-out;
+      position: relative;
+    }
+
+    .header::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--primary), var(--secondary), var(--primary));
+      border-radius: 16px 16px 0 0;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .header-icon {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      box-shadow: 0 4px 20px var(--glow-blue);
+    }
+
+    .header-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: var(--text);
+    }
+
+    .header-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .last-updated {
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .last-updated .dot {
+      width: 8px; height: 8px;
+      background: #4ade80;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    .refresh-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .refresh-btn:hover {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: white;
+    }
+
+    .current-date {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 14px;
+      color: var(--primary);
+      font-weight: 500;
+    }
+
+    /* ===== STAT CARDS ===== */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+      cursor: default;
+      transition: transform 0.3s, box-shadow 0.3s;
+      animation: fadeUp 0.6s ease-out both;
+      box-shadow: var(--shadow);
+    }
+
+    .stat-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .stat-card:nth-child(1) { animation-delay: 0.1s; }
+    .stat-card:nth-child(2) { animation-delay: 0.2s; }
+    .stat-card:nth-child(3) { animation-delay: 0.3s; }
+    .stat-card:nth-child(4) { animation-delay: 0.4s; }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      border-radius: 16px 16px 0 0;
+    }
+
+    .stat-card.blue::before { background: linear-gradient(90deg, var(--primary), var(--secondary)); }
+    .stat-card.orange::before { background: linear-gradient(90deg, var(--primary-accent), var(--secondary-accent)); }
+    .stat-card.lightblue::before { background: linear-gradient(90deg, var(--secondary), var(--secondary-accent)); }
+    .stat-card.deepblue::before { background: linear-gradient(90deg, var(--primary), var(--primary-accent)); }
+
+    .stat-icon {
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+      margin-bottom: 16px;
+    }
+
+    .stat-card.blue .stat-icon { background: rgba(37,99,235,0.1); }
+    .stat-card.orange .stat-icon { background: rgba(234,88,12,0.1); }
+    .stat-card.lightblue .stat-icon { background: rgba(59,130,246,0.1); }
+    .stat-card.deepblue .stat-icon { background: rgba(37,99,235,0.15); }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+    }
+
+    .stat-value {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 36px;
+      font-weight: 700;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .stat-card.blue .stat-value { color: var(--secondary); }
+    .stat-card.orange .stat-value { color: var(--primary-accent); }
+    .stat-card.lightblue .stat-value { color: var(--secondary); }
+    .stat-card.deepblue .stat-value { color: var(--primary); }
+
+    .stat-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .stat-amount {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px dashed var(--border);
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+    }
+
+    .stat-amount::before {
+      content: '💰';
+      font-size: 12px;
+      opacity: 0.7;
+    }
+
+    .stat-card.blue .stat-amount { color: var(--primary); }
+    .stat-card.orange .stat-amount { color: #c2410c; }
+    .stat-card.lightblue .stat-amount { color: #2563eb; }
+    .stat-card.deepblue .stat-amount { color: #1d4ed8; }
+
+    /* ===== METRICS ROW (8等份: 统计卡片占4 + 图表各占2) ===== */
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+      align-items: stretch;
+    }
+
+    .metrics-row > .stat-card {
+      grid-column: span 1;
+    }
+
+    .metrics-row > .chart-card {
+      grid-column: span 2;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .metrics-row > .chart-card .chart-wrap {
+      flex: 1;
+      min-height: 0;
+    }
+
+    .chart-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      animation: fadeUp 0.6s ease-out 0.5s both;
+      box-shadow: var(--shadow);
+      min-width: 0;
+    }
+
+    .chart-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .chart-title .icon {
+      width: 28px; height: 28px;
+      background: rgba(37,99,235,0.1);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+
+    .chart-wrap {
+      position: relative;
+      height: 260px;
+    }
+
+    /* ===== BOTTOM ROW (8等份: 表格占6 + 预警占2) ===== */
+    .bottom-row {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 16px;
+      animation: fadeUp 0.6s ease-out 0.7s both;
+      align-items: stretch;
+    }
+
+    .bottom-row > .table-card {
+      grid-column: span 6;
+      min-width: 0;
+    }
+
+    .bottom-row > .alerts-card {
+      grid-column: span 2;
+      min-width: 0;
+    }
+
+    /* ===== TABLE CARD ===== */
+    .table-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .table-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .table-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 16px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .table-title .icon {
+      width: 28px; height: 28px;
+      background: rgba(37,99,235,0.1);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+
+    .filter-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .filter-select {
+      background: var(--card-bg2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      transition: border-color 0.2s;
+      outline: none;
+    }
+
+    .filter-select:hover, .filter-select:focus {
+      border-color: var(--primary);
+    }
+
+    .filter-select option { background: var(--card-bg); color: var(--text); }
+
+    .search-input {
+      background: var(--card-bg2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: 'Inter', sans-serif;
+      outline: none;
+      transition: border-color 0.2s;
+      width: 200px;
+    }
+
+    .search-input::placeholder { color: var(--text-muted); }
+    .search-input:focus { border-color: var(--primary); }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    thead th {
+      background: var(--card-bg2);
+      color: var(--text-muted);
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      padding: 12px 14px;
+      text-align: left;
+      white-space: nowrap;
+      border-bottom: 1px solid var(--border);
+    }
+
+    tbody tr {
+      cursor: pointer;
+      transition: background 0.15s;
+      border-bottom: 1px solid var(--border);
+    }
+
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(37,99,235,0.05); }
+    tbody tr:active { background: rgba(37,99,235,0.1); }
+
+    tbody td {
+      padding: 12px 14px;
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: 'Space Grotesk', sans-serif;
+      letter-spacing: 0.3px;
+    }
+
+    .badge-transit { background: rgba(234,88,12,0.1); color: #c2410c; border: 1px solid rgba(234,88,12,0.25); }
+    .badge-shipped { background: rgba(59,130,246,0.1); color: #2563eb; border: 1px solid rgba(59,130,246,0.25); }
+    .badge-delivered { background: rgba(37,99,235,0.1); color: #1d4ed8; border: 1px solid rgba(37,99,235,0.25); }
+
+    .mono { font-family: 'Space Grotesk', monospace; font-size: 12px; }
+
+    .table-footer {
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border);
+      background: var(--card-bg2);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* ===== ALERTS SIDEBAR ===== */
+    .alerts-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: var(--shadow);
+    }
+
+    .alerts-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 16px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .alerts-title .icon {
+      width: 28px; height: 28px;
+      background: rgba(234,88,12,0.1);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+
+    .alert-count-badge {
+      margin-left: auto;
+      background: rgba(234,88,12,0.1);
+      color: #ea580c;
+      font-size: 12px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(234,88,12,0.25);
+    }
+
+    .alerts-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+      max-height: 580px;
+    }
+
+    .alert-card {
+      background: var(--card-bg2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+      animation: fadeUp 0.4s ease-out both;
+    }
+
+    .alert-card:hover {
+      transform: translateX(3px);
+      border-color: var(--primary-accent);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .alert-card::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      border-radius: 3px 0 0 3px;
+    }
+
+    .alert-card.overdue::before { background: #ef4444; }
+    .alert-card.urgent::before { background: var(--primary-accent); }
+    .alert-card.no-payment::before { background: #f59e0b; }
+
+    .alert-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .alert-tag {
+      font-size: 10px;
+      font-weight: 700;
+      font-family: 'Space Grotesk', sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 2px 8px;
+      border-radius: 6px;
+    }
+
+    .alert-tag.overdue { background: rgba(239,68,68,0.1); color: #dc2626; border: 1px solid rgba(239,68,68,0.25); }
+    .alert-tag.urgent { background: rgba(234,88,12,0.1); color: #ea580c; border: 1px solid rgba(234,88,12,0.25); }
+    .alert-tag.no-pay { background: rgba(245,158,11,0.1); color: #d97706; border: 1px solid rgba(245,158,11,0.25); }
+
+    .alert-time {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    .alert-id {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 3px;
+    }
+
+    .alert-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .alert-route {
+      font-size: 11px;
+      color: var(--secondary);
+      margin-top: 4px;
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    /* ===== MODAL ===== */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15,23,42,0.6);
+      backdrop-filter: blur(8px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s, visibility 0.3s;
+      padding: 20px;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      width: 100%;
+      max-width: 960px;
+      max-height: 90vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transform: scale(0.9) translateY(20px);
+      transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+    }
+
+    .modal-overlay.active .modal {
+      transform: scale(1) translateY(0);
+    }
+
+    .modal-header {
+      padding: 24px 28px 20px;
+      background: var(--card-bg2);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .modal-header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .modal-id {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .modal-close {
+      background: var(--card-bg2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 18px;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .modal-close:hover {
+      background: rgba(239,68,68,0.1);
+      border-color: rgba(239,68,68,0.3);
+      color: #dc2626;
+    }
+
+    .modal-body {
+      overflow-y: auto;
+      padding: 24px 28px;
+      flex: 1;
+    }
+
+    .modal-section-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--primary);
+      margin: 20px 0 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .modal-section-title:first-child { margin-top: 0; }
+
+    .modal-section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .detail-item {
+      background: var(--card-bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      transition: border-color 0.2s;
+    }
+
+    .detail-item:hover { border-color: var(--primary); }
+
+    .detail-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .detail-value {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      word-break: break-all;
+    }
+
+    .detail-value.mono {
+      font-size: 13px;
+      color: var(--primary);
+    }
+
+    /* ===== ANIMATIONS ===== */
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 1100px) {
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+      .bottom-row { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 768px) {
+      .container { padding: 16px; }
+      .header { flex-direction: column; gap: 12px; align-items: flex-start; }
+      .charts-row { grid-template-columns: 1fr; }
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+      .detail-grid { grid-template-columns: 1fr; }
+      .filter-row { flex-wrap: wrap; }
+    }
+
+    @media (max-width: 480px) {
+      .stats-row { grid-template-columns: 1fr; }
+    }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: var(--text-muted);
+    }
+
+    .empty-state .icon { font-size: 32px; margin-bottom: 12px; opacity: 0.5; }
+    .empty-state p { font-size: 13px; }
+  </style>
+</head>
+<body>
+
+<!-- ===== HEADER ===== -->
+<div class="container">
+  <header class="header">
+    <div class="header-left">
+      <div class="header-icon">🚢</div>
+      <div>
+        <div class="header-title">物流进度 Logistics Dashboard</div>
+        <div class="header-subtitle">实时追踪供应链运输状态</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="last-updated">
+        <span class="dot"></span>
+        <span id="lastUpdated">上次更新: 加载中...</span>
+      </div>
+      <div class="current-date" id="currentDate"></div>
+      <button class="refresh-btn" onclick="refreshData()">
+        <span>🔄</span> 刷新数据
+      </button>
+    </div>
+  </header>
+
+  <!-- ===== METRICS ROW (8等份: 统计卡片x4 + 图表x2) ===== -->
+  <div class="metrics-row">
+    <div class="stat-card blue">
+      <div class="stat-icon">📦</div>
+      <div class="stat-label">Total Orders</div>
+      <div class="stat-value" id="statTotal">0</div>
+      <div class="stat-sub">全部订单</div>
+      <div class="stat-amount" id="statTotalAmount">$0</div>
+    </div>
+    <div class="stat-card orange">
+      <div class="stat-icon">🚛</div>
+      <div class="stat-label">In Transit</div>
+      <div class="stat-value" id="statTransit">0</div>
+      <div class="stat-sub">运输中</div>
+      <div class="stat-amount" id="statTransitAmount">$0</div>
+    </div>
+    <div class="stat-card lightblue">
+      <div class="stat-icon">✈️</div>
+      <div class="stat-label">Shipped</div>
+      <div class="stat-value" id="statShipped">0</div>
+      <div class="stat-sub">已装船</div>
+      <div class="stat-amount" id="statShippedAmount">$0</div>
+    </div>
+    <div class="stat-card deepblue">
+      <div class="stat-icon">✅</div>
+      <div class="stat-label">Delivered</div>
+      <div class="stat-value" id="statDelivered">0</div>
+      <div class="stat-sub">已交付</div>
+      <div class="stat-amount" id="statDeliveredAmount">$0</div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">
+        <div class="icon">📊</div>
+        物流状态分布
+      </div>
+      <div class="chart-wrap">
+        <canvas id="statusChart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">
+        <div class="icon">🚢</div>
+        运输方式分布
+      </div>
+      <div class="chart-wrap">
+        <canvas id="modeChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== BOTTOM ROW ===== -->
+  <div class="bottom-row">
+    <!-- Table -->
+    <div class="table-card">
+      <div class="table-header">
+        <div class="table-title">
+          <div class="icon">📋</div>
+          物流明细表
+        </div>
+      </div>
+      <div class="filter-row">
+        <select class="filter-select" id="statusFilter" onchange="renderTable()">
+          <option value="">全部状态</option>
+          <option value="In Transit">In Transit 运输中</option>
+          <option value="Shipped">Shipped 已装船</option>
+          <option value="Delivered">Delivered 已交付</option>
+        </select>
+        <select class="filter-select" id="carrierFilter" onchange="renderTable()">
+          <option value="">全部承运商</option>
+        </select>
+        <input type="text" class="search-input" id="searchInput" placeholder="🔍 搜索合同号/提单号..." oninput="renderTable()">
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>合同号</th>
+              <th>提单号</th>
+              <th>状态</th>
+              <th>承运商</th>
+              <th>启运港</th>
+              <th>目的港</th>
+              <th>ETA</th>
+              <th>柜型</th>
+              <th>柜量</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+      <div class="table-footer">
+        <span id="tableInfo">显示 0 条记录</span>
+        <span id="tablePageInfo"></span>
+      </div>
+    </div>
+
+    <!-- Alerts -->
+    <div class="alerts-card">
+      <div class="alerts-title">
+        <div class="icon">⚠️</div>
+        预警提醒
+        <span class="alert-count-badge" id="alertCount">0</span>
+      </div>
+      <div class="alerts-list" id="alertsList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL ===== -->
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <span id="modalId" class="modal-id"></span>
+        <span id="modalStatusBadge"></span>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ===== DATA ===== (手动同步 @ 2026-07-24T11:55:10.364516)
+const EMBEDDED_DATA = [{"id": "LOG-001", "status": "In Transit", "contractNo": "1", "blNo": "1", "shipper": "1", "destination": "1", "transitPort": "1", "carrier": "1", "shipCompany": "1", "type": "1", "transportMode": "1", "eta": "2", "etaDest": "3", "containerCount": 4, "containerType": "5", "packages": 0, "netWeight": 0, "grossWeight": 0, "goodsName": "", "quantity": 0, "unit": "", "unitPrice": 0, "totalPrice": 0, "customerName": "", "reportNo": "", "vessel": "", "estRelease": "", "actualRelease": "", "paymentDate": "", "releaseTime": ""}, {"id": "LOG-002", "status": "Shipped", "contractNo": "2", "blNo": "2", "shipper": "2", "destination": "2", "transitPort": "2", "carrier": "2", "shipCompany": "2", "type": "2", "transportMode": "2", "eta": "2", "etaDest": "2", "containerCount": 2, "containerType": "2", "packages": 0, "netWeight": 0, "grossWeight": 0, "goodsName": "", "quantity": 0, "unit": "", "unitPrice": 0, "totalPrice": 0, "customerName": "", "reportNo": "", "vessel": "", "estRelease": "", "actualRelease": "", "paymentDate": "", "releaseTime": ""}, {"id": "LOG-003", "status": "Delivered", "contractNo": "1", "blNo": "1", "shipper": "1", "destination": "1", "transitPort": "1", "carrier": "1", "shipCompany": "1", "type": "1", "transportMode": "1", "eta": "2", "etaDest": "3", "containerCount": 4, "containerType": "5", "packages": 0, "netWeight": 0, "grossWeight": 0, "goodsName": "", "quantity": 0, "unit": "", "unitPrice": 0, "totalPrice": 0, "customerName": "", "reportNo": "", "vessel": "", "estRelease": "", "actualRelease": "", "paymentDate": "", "releaseTime": ""}, {"id": "LOG-004", "status": "Shipped", "contractNo": "2", "blNo": "2", "shipper": "2", "destination": "2", "transitPort": "2", "carrier": "2", "shipCompany": "2", "type": "2", "transportMode": "2", "eta": "2", "etaDest": "2", "containerCount": 2, "containerType": "2", "packages": 0, "netWeight": 0, "grossWeight": 0, "goodsName": "", "quantity": 0, "unit": "", "unitPrice": 0, "totalPrice": 0, "customerName": "", "reportNo": "", "vessel": "", "estRelease": "", "actualRelease": "", "paymentDate": "", "releaseTime": ""}, {"id": "LOG-005", "status": "In Transit", "contractNo": "1", "blNo": "1", "shipper": "1", "destination": "1", "transitPort": "1", "carrier": "1", "shipCompany": "1", "type": "1", "transportMode": "1", "eta": "2", "etaDest": "3", "containerCount": 4, "containerType": "5", "packages": 0, "netWeight": 0, "grossWeight": 0, "goodsName": "", "quantity": 0, "unit": "", "unitPrice": 0, "totalPrice": 0, "customerName": "", "reportNo": "", "vessel": "", "estRelease": "", "actualRelease": "", "paymentDate": "", "releaseTime": ""}, {"id": "LOG-006", "status": "Shipped", "contractNo": "2", "blNo": "2", "shipper": "2", "destination": "2", "transitPort": "2", "carrier": "2", "shipCompany": "2", "type": "2", "transportMode": "2", "eta": "2", "etaDest": "2", "containerCount": 2, "containerType": "2", "packages": 0, "netWeight": 0, "grossWeight": 0, "goodsName": "", "quantity": 0, "unit": "", "unitPrice": 0, "totalPrice": 0, "customerName": "", "reportNo": "", "vessel": "", "estRelease": "", "actualRelease": "", "paymentDate": "", "releaseTime": ""}];
+let logisticsData = EMBEDDED_DATA;
+let activeData = [...logisticsData];
+let lastFetchTime = '2026-07-24T11:55:10.364516';
+// ===== END DATA =====
+
+// ===== FETCH =====
+// 统一走 /api/sync：服务端实时重新抓取腾讯文档并返回最新数据
+async function fetchDataJSON() {
+  try {
+    const resp = await fetch('/api/sync', {cache: 'no-store'});
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const json = await resp.json();
+    logisticsData = json.orders || [];
+    lastFetchTime = json.updatedAt || new Date().toISOString();
+    activeData = [...logisticsData];
+    return true;
+  } catch (e) {
+    console.warn('[Dashboard] /api/sync 失败，使用内嵌兜底:', e.message);
+    // 兜底：使用内嵌数据（离线/首次加载）
+    if (logisticsData.length > 0) {
+      activeData = [...logisticsData];
+      return true;
+    }
+    return false;
+  }
+}
+
+// ===== DATE UTILS =====
+const today = new Date();
+const todayStr = today.toISOString().slice(0, 10);
+
+function formatDate(d) {
+  if (!d) return '—';
+  return d;
+}
+
+function daysUntil(dateStr) {
+  if (!dateStr) return null;
+  const eta = new Date(dateStr);
+  const diff = Math.ceil((eta - today) / (1000 * 60 * 60 * 24));
+  return diff;
+}
+
+function fmt(v) {
+  return v == null || v === '' ? '—' : String(v);
+}
+
+function fmtNum(n) {
+  if (n == null || n === '') return '—';
+  return Number(n).toLocaleString('en-US');
+}
+
+// ===== CURRENT DATE =====
+function initDate() {
+  const opts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+  document.getElementById('currentDate').textContent = today.toLocaleDateString('zh-CN', opts);
+}
+
+// ===== STATS =====
+function sumAmount(list) {
+  return list.reduce((s, d) => s + (Number(d.totalPrice) || 0), 0);
+}
+
+function fmtMoney(n) {
+  return '$' + Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 });
+}
+
+function updateStats() {
+  const total = activeData.length;
+  const transit = activeData.filter(d => d.status === 'In Transit');
+  const shipped = activeData.filter(d => d.status === 'Shipped');
+  const delivered = activeData.filter(d => d.status === 'Delivered');
+  animateCounter('statTotal', total);
+  animateCounter('statTransit', transit.length);
+  animateCounter('statShipped', shipped.length);
+  animateCounter('statDelivered', delivered.length);
+  document.getElementById('statTotalAmount').textContent = fmtMoney(sumAmount(activeData));
+  document.getElementById('statTransitAmount').textContent = fmtMoney(sumAmount(transit));
+  document.getElementById('statShippedAmount').textContent = fmtMoney(sumAmount(shipped));
+  document.getElementById('statDeliveredAmount').textContent = fmtMoney(sumAmount(delivered));
+}
+
+function animateCounter(id, target) {
+  const el = document.getElementById(id);
+  const duration = 800;
+  const start = performance.now();
+  const from = 0;
+  function tick(now) {
+    const elapsed = now - start;
+    const progress = Math.min(elapsed / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    el.textContent = Math.round(from + (target - from) * eased);
+    if (progress < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+// ===== CARRIER FILTER =====
+function initCarrierFilter() {
+  const carriers = [...new Set(logisticsData.map(d => d.carrier))].sort();
+  const sel = document.getElementById('carrierFilter');
+  carriers.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c;
+    opt.textContent = c;
+    sel.appendChild(opt);
+  });
+}
+
+// ===== CHART.JS CONFIGS =====
+const CHART_COLORS = {
+  primary: '#224FC2',
+  primaryAccent: '#F07C00',
+  secondary: '#4874CB',
+  secondaryAccent: '#F5B584',
+  teal: '#06b6d4',
+};
+
+Chart.defaults.color = '#8a9ab5';
+Chart.defaults.font.family = "'Space Grotesk', sans-serif";
+Chart.defaults.plugins.legend.display = false;
+
+let statusChartInstance = null;
+let modeChartInstance = null;
+
+function renderCharts() {
+  const transit = activeData.filter(d => d.status === 'In Transit').length;
+  const shipped = activeData.filter(d => d.status === 'Shipped').length;
+  const delivered = activeData.filter(d => d.status === 'Delivered').length;
+
+  const modeCounts = {};
+  activeData.forEach(d => {
+    const mode = d.transportMode || 'Other';
+    modeCounts[mode] = (modeCounts[mode] || 0) + 1;
+  });
+
+  if (statusChartInstance) statusChartInstance.destroy();
+  if (modeChartInstance) modeChartInstance.destroy();
+
+  // Doughnut
+  const sc = document.getElementById('statusChart').getContext('2d');
+  statusChartInstance = new Chart(sc, {
+    type: 'doughnut',
+    data: {
+      labels: ['运输中 In Transit', '已装船 Shipped', '已交付 Delivered'],
+      datasets: [{
+        data: [transit, shipped, delivered],
+        backgroundColor: [CHART_COLORS.primaryAccent, CHART_COLORS.secondary, CHART_COLORS.primary],
+        borderColor: '#1a2744',
+        borderWidth: 3,
+        hoverOffset: 8,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '68%',
+      plugins: {
+        legend: {
+          display: true,
+          position: 'bottom',
+          labels: {
+            color: '#8a9ab5',
+            padding: 16,
+            font: { size: 12, family: "'Space Grotesk', sans-serif" },
+            usePointStyle: true,
+            pointStyleWidth: 10,
+          }
+        },
+        tooltip: {
+          backgroundColor: '#1a2744',
+          borderColor: '#4874CB',
+          borderWidth: 1,
+          titleFont: { family: "'Space Grotesk', sans-serif", size: 13 },
+          bodyFont: { family: "'Space Grotesk', sans-serif", size: 12 },
+          padding: 12,
+          cornerRadius: 10,
+        }
+      },
+      animation: { animateRotate: true, duration: 1000, easing: 'easeOutQuart' }
+    }
+  });
+
+  // Pie
+  const mc = document.getElementById('modeChart').getContext('2d');
+  const modeLabels = Object.keys(modeCounts);
+  const modeValues = Object.values(modeCounts);
+  const pieColors = [CHART_COLORS.primary, CHART_COLORS.primaryAccent, CHART_COLORS.secondary, CHART_COLORS.teal, CHART_COLORS.secondaryAccent];
+
+  modeChartInstance = new Chart(mc, {
+    type: 'pie',
+    data: {
+      labels: modeLabels,
+      datasets: [{
+        data: modeValues,
+        backgroundColor: pieColors.slice(0, modeLabels.length),
+        borderColor: '#1a2744',
+        borderWidth: 3,
+        hoverOffset: 8,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: true,
+          position: 'bottom',
+          labels: {
+            color: '#8a9ab5',
+            padding: 16,
+            font: { size: 12, family: "'Space Grotesk', sans-serif" },
+            usePointStyle: true,
+            pointStyleWidth: 10,
+          }
+        },
+        tooltip: {
+          backgroundColor: '#1a2744',
+          borderColor: '#4874CB',
+          borderWidth: 1,
+          titleFont: { family: "'Space Grotesk', sans-serif", size: 13 },
+          bodyFont: { family: "'Space Grotesk', sans-serif", size: 12 },
+          padding: 12,
+          cornerRadius: 10,
+        }
+      },
+      animation: { animateRotate: true, duration: 1000, easing: 'easeOutQuart' }
+    }
+  });
+}
+
+// ===== TABLE =====
+function getBadgeHtml(status) {
+  const map = {
+    'In Transit': { cls: 'badge-transit', label: 'In Transit' },
+    'Shipped': { cls: 'badge-shipped', label: 'Shipped' },
+    'Delivered': { cls: 'badge-delivered', label: 'Delivered' },
+  };
+  const b = map[status] || { cls: 'badge-transit', label: status };
+  return `<span class="badge ${b.cls}">${b.label}</span>`;
+}
+
+function renderTable() {
+  const statusF = document.getElementById('statusFilter').value;
+  const carrierF = document.getElementById('carrierFilter').value;
+  const search = document.getElementById('searchInput').value.toLowerCase();
+
+  const filtered = activeData.filter(d => {
+    if (statusF && d.status !== statusF) return false;
+    if (carrierF && d.carrier !== carrierF) return false;
+    if (search && !d.contractNo.toLowerCase().includes(search) && !d.blNo.toLowerCase().includes(search) && !d.customerName.toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  const tbody = document.getElementById('tableBody');
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="icon">📭</div><p>暂无匹配记录</p></div></td></tr>`;
+    document.getElementById('tableInfo').textContent = '显示 0 条记录';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map((d, i) => `
+    <tr onclick="openModal('${d.id}')" style="animation-delay:${i * 0.03}s">
+      <td><span class="mono">${fmt(d.contractNo)}</span></td>
+      <td><span class="mono" style="color:var(--secondary-accent)">${fmt(d.blNo)}</span></td>
+      <td>${getBadgeHtml(d.status)}</td>
+      <td>${fmt(d.carrier)}</td>
+      <td>${fmt(d.shipper)}</td>
+      <td>${fmt(d.destination)}</td>
+      <td><span class="mono">${fmt(d.eta)}</span></td>
+      <td>${fmt(d.containerType)}</td>
+      <td><span class="mono" style="color:var(--secondary)">${d.containerCount}</span></td>
+    </tr>
+  `).join('');
+
+  document.getElementById('tableInfo').textContent = `显示 ${filtered.length} 条记录`;
+}
+
+// ===== ALERTS =====
+function generateAlerts() {
+  const alerts = [];
+
+  activeData.forEach(d => {
+    // Overdue ETA
+    if (d.eta && d.eta < todayStr && d.status !== 'Delivered') {
+      const days = daysUntil(d.eta);
+      alerts.push({
+        type: 'overdue',
+        tag: '逾期',
+        id: d.id,
+        desc: `ETA 已逾期 ${Math.abs(days)} 天`,
+        route: `${fmt(d.shipper)} → ${fmt(d.destination)}`,
+        time: d.eta,
+      });
+    }
+
+    // Urgent (ETA within 5 days)
+    if (d.eta && d.eta >= todayStr && d.status !== 'Delivered') {
+      const days = daysUntil(d.eta);
+      if (days <= 5) {
+        alerts.push({
+          type: 'urgent',
+          tag: '紧急',
+          id: d.id,
+          desc: `ETA 剩余 ${days} 天，请及时跟进`,
+          route: `${fmt(d.shipper)} → ${fmt(d.destination)}`,
+          time: d.eta,
+        });
+      }
+    }
+
+    // No payment
+    if (!d.paymentDate && d.status !== 'Delivered') {
+      alerts.push({
+        type: 'no-pay',
+        tag: '未付款',
+        id: d.id,
+        desc: '尚未确认付款信息',
+        route: `${fmt(d.shipper)} → ${fmt(d.destination)}`,
+        time: '',
+      });
+    }
+  });
+
+  // Sort: overdue first, then urgent, then no-payment
+  alerts.sort((a, b) => {
+    const order = { overdue: 0, urgent: 1, 'no-pay': 2 };
+    return order[a.type] - order[b.type];
+  });
+
+  return alerts;
+}
+
+function renderAlerts() {
+  const alerts = generateAlerts();
+  document.getElementById('alertCount').textContent = alerts.length;
+
+  if (alerts.length === 0) {
+    document.getElementById('alertsList').innerHTML = `
+      <div class="empty-state">
+        <div class="icon">✅</div>
+        <p>暂无预警</p>
+      </div>`;
+    return;
+  }
+
+  document.getElementById('alertsList').innerHTML = alerts.map((a, i) => `
+    <div class="alert-card ${a.type}" onclick="openModal('${a.id}')" style="animation-delay:${i * 0.05}s">
+      <div class="alert-card-header">
+        <span class="alert-tag ${a.type}">${a.tag}</span>
+        <span class="alert-time">${a.id}</span>
+      </div>
+      <div class="alert-id">${a.route.split(' → ')[0]}</div>
+      <div class="alert-desc">${a.desc}</div>
+      <div class="alert-route">${a.route}</div>
+    </div>
+  `).join('');
+}
+
+// ===== MODAL =====
+const FIELD_GROUPS = [
+  {
+    title: '基本信息 Basic Info',
+    fields: [
+      { key: 'id', label: '订单号 ID' },
+      { key: 'status', label: '状态 Status' },
+      { key: 'contractNo', label: '合同号 Contract No', mono: true },
+      { key: 'blNo', label: '提单号 BL No', mono: true },
+      { key: 'reportNo', label: '报告号 Report No', mono: true },
+    ]
+  },
+  {
+    title: '船务信息 Shipping',
+    fields: [
+      { key: 'shipCompany', label: '船公司 Shipping Line' },
+      { key: 'carrier', label: '承运商 Carrier' },
+      { key: 'vessel', label: '船名 Vessel' },
+      { key: 'transportMode', label: '运输方式 Transport Mode' },
+      { key: 'type', label: '提单类型 BL Type' },
+      { key: 'transitPort', label: '中转港 Transit Port' },
+    ]
+  },
+  {
+    title: '货物信息 Cargo',
+    fields: [
+      { key: 'goodsName', label: '货物品名 Goods' },
+      { key: 'packages', label: '件数 Packages' },
+      { key: 'quantity', label: '数量 Quantity' },
+      { key: 'unit', label: '单位 Unit' },
+      { key: 'netWeight', label: '净重 Net Weight (kg)' },
+      { key: 'grossWeight', label: '毛重 Gross Weight (kg)' },
+      { key: 'containerType', label: '柜型 Container Type' },
+      { key: 'containerCount', label: '柜量 Container Count' },
+    ]
+  },
+  {
+    title: '价格信息 Pricing',
+    fields: [
+      { key: 'unitPrice', label: '单价 Unit Price (USD)' },
+      { key: 'totalPrice', label: '总价 Total Price (USD)' },
+      { key: 'customerName', label: '客户 Customer' },
+    ]
+  },
+  {
+    title: '港口与物流 Port & Logistics',
+    fields: [
+      { key: 'shipper', label: '启运港 Shipper/Origin' },
+      { key: 'destination', label: '目的港 Destination' },
+      { key: 'eta', label: '预计到港 ETA' },
+      { key: 'estRelease', label: '预计放货 Est Release' },
+      { key: 'actualRelease', label: '实际放货 Actual Release' },
+      { key: 'releaseTime', label: '放货时间 Release Time' },
+    ]
+  },
+  {
+    title: '付款信息 Payment',
+    fields: [
+      { key: 'paymentDate', label: '付款日期 Payment Date' },
+    ]
+  }
+];
+
+function openModal(id) {
+  const d = activeData.find(x => x.id === id);
+  if (!d) return;
+
+  document.getElementById('modalId').textContent = d.id;
+  document.getElementById('modalStatusBadge').innerHTML = getBadgeHtml(d.status);
+
+  let html = '';
+  FIELD_GROUPS.forEach(group => {
+    html += `<div class="modal-section-title">${group.title}</div><div class="detail-grid">`;
+    group.fields.forEach(field => {
+      const val = d[field.key];
+      const display = field.key === 'netWeight' || field.key === 'grossWeight'
+        ? fmtNum(val)
+        : field.key === 'unitPrice' || field.key === 'totalPrice'
+        ? fmtNum(val)
+        : fmt(val);
+      html += `
+        <div class="detail-item">
+          <div class="detail-label">${field.label}</div>
+          <div class="detail-value ${field.mono ? 'mono' : ''}">${display}</div>
+        </div>`;
+    });
+    html += '</div>';
+  });
+
+  document.getElementById('modalBody').innerHTML = html;
+  document.getElementById('modalOverlay').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+});
+
+// ===== REFRESH =====
+async function refreshData() {
+  const btn = document.querySelector('.refresh-btn');
+  const dot = document.querySelector('.last-updated .dot');
+  const original = btn.innerHTML;
+  btn.innerHTML = '<span>⏳</span> 刷新中...';
+  btn.disabled = true;
+  if (dot) dot.style.background = '#f59e0b';
+
+  const ok = await fetchDataJSON();
+  if (ok) {
+    initCarrierFilter();
+    updateStats();
+    renderCharts();
+    renderTable();
+    renderAlerts();
+  }
+
+  const now = new Date();
+  const ts = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  document.getElementById('lastUpdated').textContent = `上次更新: ${ts}` + (ok ? '' : ' (离线缓存)');
+  if (dot) dot.style.background = ok ? '#4ade80' : '#f59e0b';
+
+  btn.innerHTML = original;
+  btn.disabled = false;
+}
+
+// ===== AUTO POLL =====
+function startAutoPoll(intervalMs) {
+  if (autoPoller) clearInterval(autoPoller);
+  autoPoller = setInterval(refreshData, intervalMs);
+}
+
+// ===== INIT =====
+async function init() {
+  initDate();
+  // 页面加载即实时抓文档
+  await fetchDataJSON();
+  initCarrierFilter();
+  updateStats();
+  renderCharts();
+  renderTable();
+  renderAlerts();
+
+  const now = new Date();
+  const ts = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  document.getElementById('lastUpdated').textContent = `上次更新: ${ts}`;
+
+  // 每 30 秒自动刷新数据
+  startAutoPoll(30000);
+
+  // Redraw charts on resize
+  window.addEventListener('resize', () => {
+    if (statusChartInstance) statusChartInstance.resize();
+    if (modeChartInstance) modeChartInstance.resize();
+  });
+}
+
+// 页面加载完成后初始化
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
