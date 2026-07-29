@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>物流进度看板 Logistics Dashboard</title>
+  <title>锦源晟 · 物流进度看板</title>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <style>
@@ -104,6 +104,13 @@
       gap: 16px;
     }
 
+    .header-logo {
+      height: 42px;
+      width: auto;
+      object-fit: contain;
+      border-radius: 8px;
+    }
+
     .header-icon {
       width: 48px;
       height: 48px;
@@ -118,14 +125,15 @@
 
     .header-title {
       font-family: 'Space Grotesk', sans-serif;
-      font-size: 26px;
+      font-size: 22px;
       font-weight: 700;
       letter-spacing: -0.5px;
       color: var(--text);
+      line-height: 1.2;
     }
 
     .header-subtitle {
-      font-size: 13px;
+      font-size: 12px;
       color: var(--text-muted);
       margin-top: 2px;
     }
@@ -829,10 +837,10 @@
 <div class="container">
   <header class="header">
     <div class="header-left">
-      <div class="header-icon">🚢</div>
+      <img src="logo.jpg" alt="锦源晟 Jayson" class="header-logo">
       <div>
-        <div class="header-title">物流进度 Logistics Dashboard</div>
-        <div class="header-subtitle">实时追踪供应链运输状态</div>
+        <div class="header-title">物流进度看板</div>
+        <div class="header-subtitle">锦源晟 · 实时供应链追踪</div>
       </div>
     </div>
     <div class="header-right">
@@ -864,7 +872,7 @@
       <div class="stat-amount" id="statTransitAmount">合计 ¥0</div>
     </div>
     <div class="stat-card lightblue">
-      <div class="stat-icon">✈️</div>
+      <div class="stat-icon">🚢</div>
       <div class="stat-label">Shipped</div>
       <div class="stat-value" id="statShipped">0</div>
       <div class="stat-sub">已装船</div>
