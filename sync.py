@@ -1,370 +1,258 @@
-#!/usr/bin/env python3
+"""物流看板同步脚本（本机常驻·最终版）
+
+数据来源：腾讯文档在线表格，通过已登录的浏览器（复用 qclaw 登录态 cookie）打开文档，
+直接从页面内存模型 SpreadsheetApp.workbook.activeSheet.getCellDataAtPosition() 读取整张表。
+无需导出 API、无需解析 protobuf、无需抓 WebSocket。
+
+流程：
+1) 解密 qclaw xbrowser profile 的腾讯文档登录 cookie（DPAPI + AESGCM，含 32 字节 header 剥离）
+2) Playwright 启动 Chromium，注入 cookie 并打开文档（cookie 由 Chrome 自动续期）
+3) page.evaluate 读取整张表二维数组（公式单元格取 formulaResult.value）
+4) 表头→看板字段映射，生成 data.json
+5) 推送到 GitHub Pages（kamlshi.github.io/logistics-dashboard/data.json）
+
+运行：python sync.py
+依赖：playwright, cryptography, requests
 """
-sync.py — 腾讯文档自动同步脚本 (Cookie模式)
-使用 Cookie 调用 async_export API 导出 xlsx，解析后生成 data.json
-
-工作流程:
-1. 用 Cookie 调用 async_export 创建导出任务
-2. 等待导出完成
-3. 下载 xlsx 文件
-4. 用 openpyxl 解析单元格数据
-5. 生成 data.json 推送到 GitHub
-
-环境变量:
-  COOKIE       - 腾讯文档 Cookie (从浏览器获取)
-  DOC_ID       - 文档ID (默认: DWk1ESWh0VFJKUGlI)
-  PAD_ID       - Pad ID (默认: ZMDIhtTRJPiH)
-  GITHUB_PAT   - GitHub Personal Access Token
-  GITHUB_REPO  - GitHub 仓库 (默认: kamlshi/logistics-dashboard)
-"""
-
-import os
-import sys
-import json
-import time
-import base64
-import tempfile
+import os, sys, json, time, shutil, sqlite3, base64, ctypes
+from ctypes import wintypes
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 import requests
+from playwright.sync_api import sync_playwright
 
-# 配置
-DOC_ID = os.environ.get('DOC_ID', 'DWk1ESWh0VFJKUGlI')
-PAD_ID = os.environ.get('PAD_ID', 'ZMDIhtTRJPiH')
-GITHUB_REPO = os.environ.get('GITHUB_REPO', 'kamlshi/logistics-dashboard')
-GITHUB_PAT = os.environ.get('GITHUB_PAT', '')
-COOKIE = os.environ.get('COOKIE', '')
+# ---------- 本地密钥（不从仓库读取，避免泄露）----------
+def _load_env_file(path):
+    """从本地 .env_sync 读取 GITHUB_PAT 等（该文件不入库）。"""
+    if not os.path.exists(path):
+        return
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
 
-BASE_URL = 'https://docs.qq.com'
+_load_env_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env_sync"))
 
-# 状态映射
-STATUS_MAP = {
-    '运输中': 'InTransit',
-    '已装船': 'Shipped',
-    '已交付': 'Delivered',
-    '待发货': 'Pending',
-    '已收货': 'Received',
-    '延期': 'Delayed',
+# ---------- 配置 ----------
+CHROME = r"C:\Users\pc\AppData\Local\ms-playwright\chromium-1234\chrome-win64\chrome.exe"
+PROFILE_SRC = r"C:\Users\pc\.qclaw\tools\xbrowser\profiles\edge\Default"
+DOC_URL = "https://docs.qq.com/sheet/DWk1ESWh0VFJKUGlI"
+TMP = r"C:\Users\pc\WorkBuddy\2026-07-29-09-35-09\tmp_cookies"
+WS_DIR = r"C:\Users\pc\WorkBuddy\2026-07-29-09-35-09\logistics-dashboard"
+OUT_JSON = os.path.join(WS_DIR, "data.json")
+os.makedirs(TMP, exist_ok=True)
+
+GITHUB_REPO = os.environ.get("GITHUB_REPO", "kamlshi/logistics-dashboard")
+GITHUB_PAT = os.environ.get("GITHUB_PAT", "")
+GITHUB_BRANCH = os.environ.get("GITHUB_BRANCH", "main")
+
+# 表头关键词 → 看板字段（按顺序优先匹配，确保稳定）
+HEADER_MAP = [
+    ("物流状态", "status"),
+    ("合同号", "contractNo"),
+    ("提单", "blNo"),
+    ("启运港", "shipper"),
+    ("目的港", "destination"),
+    ("中转港", "transitPort"),
+    ("承运", "carrier"),
+    ("船公司", "shipCompany"),
+    ("电放", "type"),
+    ("运输方式", "transportMode"),
+    ("ETA", "eta"),          # ETA（中转港）/ ETA（目的港）都先映射到 eta/etaDest，下面再细分
+    ("柜量", "containerCount"),
+    ("柜型", "containerType"),
+    ("件数", "packages"),
+    ("净重", "netWeight"),
+    ("毛重", "grossWeight"),
+    ("货名", "goodsName"),
+    ("数量", "quantity"),
+    ("单位", "unit"),
+    ("单价", "unitPrice"),
+    ("总价", "totalPrice"),
+    ("报告编号", "reportNo"),
+    ("船名航次", "vessel"),
+    ("预计放行", "estRelease"),
+    ("实际放行", "actualRelease"),
+    ("水单到账", "paymentDate"),
+    ("放单", "releaseTime"),
+    ("客户名", "customerName"),
+    ("注意事项", "notes"),
+    ("备注", "notes"),
+]
+STATUS_EN = {
+    "运输中": "InTransit", "在途": "InTransit", "已装船": "Shipped", "已发船": "Shipped",
+    "已交付": "Delivered", "已完成": "Delivered", "待发货": "Pending", "已收货": "Received",
+    "延期": "Delayed", "延误": "Delayed",
 }
 
-def get_xsrf_from_cookie(cookie_str):
-    """从 Cookie 字符串中提取 xsrf token"""
-    for part in cookie_str.split(';'):
-        part = part.strip()
-        if part.startswith('xsrf='):
-            return part.split('=')[1]
-    return ''
+# ---------- 1. 解密 cookie ----------
+def decrypt_cookies():
+    COOKIE_DB = os.path.join(PROFILE_SRC, "Network", "Cookies")
+    USER_DATA = os.path.dirname(PROFILE_SRC)
+    shutil.copy2(COOKIE_DB, os.path.join(TMP, "edge_cookies.db"))
+    shutil.copy2(os.path.join(USER_DATA, "Local State"), os.path.join(TMP, "edge_localstate.json"))
+    crypt32 = ctypes.windll.crypt32; kernel32 = ctypes.windll.kernel32
+    class DATA_BLOB(ctypes.Structure):
+        _fields_ = [("cbData", wintypes.DWORD), ("pbData", ctypes.POINTER(ctypes.c_byte))]
+    def dpapi(data):
+        inp = DATA_BLOB(len(data), ctypes.cast(ctypes.create_string_buffer(data, len(data)), ctypes.POINTER(ctypes.c_byte)))
+        out = DATA_BLOB()
+        if crypt32.CryptUnprotectData(ctypes.byref(inp), None, None, None, None, 0, ctypes.byref(out)) == 0:
+            raise ctypes.WinError()
+        buf = ctypes.string_at(out.pbData, out.cbData); kernel32.LocalFree(out.pbData); return buf
+    key = dpapi(base64.b64decode(json.load(open(os.path.join(TMP, "edge_localstate.json"), encoding="utf-8"))["os_crypt"]["encrypted_key"])[5:])
+    def dec(enc):
+        if enc and enc[:3] in (b"v10", b"v11"):
+            pt = AESGCM(key).decrypt(enc[3:15], enc[15:], None)
+            if len(pt) > 32: pt = pt[32:]
+            return pt.decode("utf-8", "replace")
+        if enc:
+            try: return dpapi(enc).decode("utf-8", "replace")
+            except Exception: return ""
+        return ""
+    conn = sqlite3.connect(os.path.join(TMP, "edge_cookies.db")); cur = conn.cursor()
+    cur.execute("SELECT name, value, host_key, encrypted_value, path, expires_utc, is_secure, is_httponly FROM cookies WHERE host_key LIKE '%qq.com%'")
+    out = []
+    for name, value, host, enc, path, expires, is_secure, is_httponly in cur.fetchall():
+        val = dec(enc) if (enc and len(enc) > 0) else (value or "")
+        if not val: continue
+        c = {"name": name, "value": val, "domain": host, "path": path or "/", "secure": bool(is_secure), "httpOnly": bool(is_httponly)}
+        if expires and expires > 0: c["expires"] = expires / 1_000_000 - 11644473600
+        out.append(c)
+    conn.close()
+    return out
 
-def create_export_task(cookie_str, format='xlsx'):
-    """创建导出任务"""
-    xsrf = get_xsrf_from_cookie(cookie_str)
-    headers = {
-        'Cookie': cookie_str,
-        'Content-Type': 'application/json',
-        'X-Xsrf': xsrf,
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Referer': f'{BASE_URL}/sheet/{DOC_ID}',
-    }
-
-    # async_export API
-    url = f'{BASE_URL}/api/v2/sheet/{DOC_ID}/async_export'
-    payload = {
-        'format': format,
-        'sheetId': '000001',  # 第一个sheet
-    }
-
-    print(f'[1] Creating export task: {url}')
-    resp = requests.post(url, headers=headers, json=payload, timeout=30)
-
-    if resp.status_code != 200:
-        # 尝试备用URL
-        url2 = f'{BASE_URL}/dop-api/offline/export_async'
-        payload2 = {
-            'padId': PAD_ID,
-            'type': 'xlsx',
-            'format': 'xlsx',
+# ---------- 2+3. Playwright 读取表格 ----------
+def extract_grid(pw_cookies):
+    grid_js = r"""
+    () => {
+      function cellVal(cd) {
+        if (cd == null) return '';
+        if (typeof cd !== 'object') return cd;
+        if (cd.value !== undefined && cd.value !== '' && cd.value !== null) return cd.value;
+        if (cd.formulaResult && cd.formulaResult.value !== undefined && cd.formulaResult.value !== '' && cd.formulaResult.value !== null) return cd.formulaResult.value;
+        if (cd.displayValue !== undefined && cd.displayValue !== '') return cd.displayValue;
+        if (cd.text !== undefined) return cd.text;
+        return '';
+      }
+      const sh = window.SpreadsheetApp.workbook.activeSheet;
+      const rows = sh.getRowCount();
+      const cols = sh.getColCount();
+      const out = [];
+      for (let r = 0; r < rows; r++) {
+        const row = [];
+        for (let c = 0; c < cols; c++) {
+          try { row.push(cellVal(sh.getCellDataAtPosition(r, c))); }
+          catch(e) { row.push(''); }
         }
-        resp = requests.post(url2, headers=headers, json=payload2, timeout=30)
-
-    print(f'  Status: {resp.status_code}')
-    result = resp.json()
-    print(f'  Response: {json.dumps(result, ensure_ascii=False)[:200]}')
-
-    return result
-
-def wait_for_export(cookie_str, task_id):
-    """等待导出完成"""
-    xsrf = get_xsrf_from_cookie(cookie_str)
-    headers = {
-        'Cookie': cookie_str,
-        'X-Xsrf': xsrf,
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        out.push(row);
+      }
+      return out;
     }
+    """
+    with sync_playwright() as p:
+        ctx = p.chromium.launch_persistent_context(
+            user_data_dir=os.path.join(TMP, "pw_profile"), executable_path=CHROME, headless=True,
+            args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu", "--disable-software-rasterizer"])
+        ctx.add_cookies(pw_cookies)
+        page = ctx.new_page()
+        page.goto(DOC_URL, wait_until="domcontentloaded", timeout=30000)
+        time.sleep(12)  # 等待 SpreadsheetApp 初始化并载入数据
+        grid = page.evaluate(grid_js)
+        ctx.close()
+    return grid
 
-    max_wait = 30  # 最大等待30秒
-    for i in range(max_wait):
-        url = f'{BASE_URL}/api/v2/sheet/{DOC_ID}/async_export_progress?taskId={task_id}'
-        resp = requests.get(url, headers=headers, timeout=15)
-        result = resp.json()
-
-        status = result.get('status', result.get('retcode', -1))
-        print(f'  [{i+1}] Export progress: status={status}')
-
-        if status == 2 or result.get('progress') == 100:
-            # 导出完成
-            download_url = result.get('downloadUrl', result.get('url', ''))
-            if download_url:
-                return download_url
-
-        # 尝试备用接口
-        url2 = f'{BASE_URL}/dop-api/offline/export_progress'
-        params = {'taskId': task_id, 'padId': PAD_ID}
-        resp2 = requests.get(url2, headers=headers, params=params, timeout=15)
-        result2 = resp2.json()
-        if result2.get('progress') == 100 or result2.get('downloadUrl'):
-            return result2.get('downloadUrl', '')
-
-        time.sleep(1)
-
-    print('  Export timeout!')
-    return None
-
-def download_xlsx(download_url, cookie_str):
-    """下载导出的 xlsx 文件"""
-    headers = {
-        'Cookie': cookie_str,
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-    }
-
-    print(f'[3] Downloading xlsx from: {download_url[:80]}...')
-    resp = requests.get(download_url, headers=headers, timeout=30)
-
-    if resp.status_code == 200:
-        tmp_file = tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False)
-        tmp_file.write(resp.content)
-        tmp_file.close()
-        print(f'  Saved to: {tmp_file.name} ({len(resp.content)} bytes)')
-        return tmp_file.name
-    else:
-        print(f'  Download failed: {resp.status_code}')
-        return None
-
-def parse_xlsx(xlsx_path):
-    """解析 xlsx 文件并提取表格数据"""
-    try:
-        import openpyxl
-    except ImportError:
-        print('  openpyxl not installed, trying to install...')
-        import subprocess
-        subprocess.run([sys.executable, '-m', 'pip', 'install', 'openpyxl', '--quiet'])
-        import openpyxl
-
-    print(f'[4] Parsing xlsx: {xlsx_path}')
-    wb = openpyxl.load_workbook(xlsx_path, data_only=True)
-    ws = wb.active
-
-    # 读取所有行
+# ---------- 4. 映射到看板字段 ----------
+def build_rows(grid):
+    if not grid:
+        return [], []
+    header = [str(h).strip() if h is not None else "" for h in grid[0]]
+    # 建立 列索引 → 看板字段
+    col2field = {}
+    for i, h in enumerate(header):
+        if not h:
+            continue
+        for kw, field in HEADER_MAP:
+            if kw in h:
+                # ETA 细分
+                if field == "eta":
+                    field = "etaDest" if "目的" in h else "eta"
+                col2field[i] = field
+                break
     rows = []
-    headers = None
-
-    for row_idx, row in enumerate(ws.iter_rows(values_only=True)):
-        if row_idx == 0:
-            # 第一行是表头
-            headers = [str(cell) if cell else '' for cell in row]
-            continue
-
-        # 跳过空行
-        if not any(row):
-            continue
-
-        row_data = {}
-        for col_idx, cell in enumerate(row):
-            if col_idx < len(headers) and headers[col_idx]:
-                key = headers[col_idx]
-                value = cell
-                if isinstance(value, (int, float)):
-                    row_data[key] = value
-                elif value:
-                    row_data[key] = str(value)
+    for r in grid[1:]:
+        if not any(str(c).strip() for c in r):
+            continue  # 跳过空行
+        d = {k: "" for k in
+             ["id","status","contractNo","blNo","shipper","destination","transitPort","carrier",
+              "shipCompany","type","transportMode","eta","etaDest","containerCount","containerType",
+              "packages","netWeight","grossWeight","goodsName","quantity","unit","unitPrice","totalPrice",
+              "customerName","reportNo","vessel","estRelease","actualRelease","paymentDate","releaseTime","notes"]}
+        for i, field in col2field.items():
+            if i < len(r):
+                v = r[i]
+                if v is None or v == "":
+                    v = ""
+                if field in ("containerCount","containerType","packages","quantity","netWeight","grossWeight","unitPrice","totalPrice"):
+                    try: v = float(v) if v not in ("", None) else 0
+                    except Exception: v = str(v)
                 else:
-                    row_data[key] = ''
+                    v = str(v)
+                d[field] = v
+        # id + 状态英文映射
+        d["id"] = d.get("contractNo") or d.get("blNo") or f"ROW-{len(rows)+1}"
+        raw = str(d.get("status", ""))
+        d["status"] = STATUS_EN.get(raw, raw)
+        rows.append(d)
+    return header, rows
 
-        if row_data:
-            rows.append(row_data)
-
-    print(f'  Found {len(rows)} rows with headers: {headers}')
-    wb.close()
-    return headers, rows
-
-def format_for_dashboard(headers, rows):
-    """将表格数据格式化为 dashboard 需要的格式"""
-    # 根据 headers 映射到 dashboard 字段
-    # 原始数据格式: 运单号/订单号/客户/目的地/状态/预计到达/实际到达/总金额/备注
-    dashboard_rows = []
-
-    for row in rows:
-        # 尝试不同的列名映射
-        order_id = row.get('运单号', row.get('订单号', row.get('Order ID', row.get('Logistics ID', ''))))
-        customer = row.get('客户', row.get('Customer', row.get('客户名', '')))
-        destination = row.get('目的地', row.get('Destination', row.get('目的港', '')))
-        status_raw = row.get('状态', row.get('Status', row.get('物流状态', '')))
-        eta = row.get('预计到达', row.get('ETA', row.get('预计到港', '')))
-        actual_arrival = row.get('实际到达', row.get('Actual Arrival', row.get('实际到港', '')))
-        total_price = row.get('总金额', row.get('Total Price', row.get('金额', row.get('Total Amount', 0))))
-        notes = row.get('备注', row.get('Notes', row.get('Remark', '')))
-
-        # 映射状态到英文
-        status = STATUS_MAP.get(status_raw, status_raw)
-
-        # 格式化金额
-        try:
-            amount = float(total_price) if total_price else 0
-        except (ValueError, TypeError):
-            amount = 0
-
-        dashboard_rows.append({
-            'id': order_id,
-            'customer': customer,
-            'destination': destination,
-            'status': status,
-            'statusRaw': status_raw,
-            'eta': str(eta) if eta else '',
-            'actualArrival': str(actual_arrival) if actual_arrival else '',
-            'totalPrice': amount,
-            'notes': notes,
-        })
-
-    return dashboard_rows
-
-def push_to_github(data_json_path):
-    """推送 data.json 到 GitHub Pages"""
+# ---------- 5. 推送 GitHub ----------
+def push_github(data_str):
     if not GITHUB_PAT:
-        print('[5] No GITHUB_PAT, skipping push to GitHub')
+        print("[github] 未配置 PAT，跳过推送")
         return False
-
-    print(f'[5] Pushing data.json to GitHub...')
-    api_url = f'https://api.github.com/repos/{GITHUB_REPO}/contents/data.json'
-
-    # 读取当前文件内容
-    headers = {
-        'Authorization': f'token {GITHUB_PAT}',
-        'Content-Type': 'application/json',
-        'User-Agent': 'sync-bot',
-    }
-
-    # 获取当前文件的 SHA
-    resp = requests.get(api_url, headers=headers, timeout=15)
-    current_sha = ''
-    if resp.status_code == 200:
-        current_sha = resp.json().get('sha', '')
-
-    # 读取新文件内容
-    with open(data_json_path, 'r', encoding='utf-8') as f:
-        content = f.read()
-
-    content_b64 = base64.b64encode(content.encode('utf-8')).decode('utf-8')
-
-    # 推送更新
-    payload = {
-        'message': f'Auto sync: {time.strftime("%Y-%m-%d %H:%M:%S")}',
-        'content': content_b64,
-        'sha': current_sha,
-    }
-
-    resp = requests.put(api_url, headers=headers, json=payload, timeout=30)
-
-    if resp.status_code in [200, 201]:
-        print(f'  ✅ Pushed successfully!')
+    api = f"https://api.github.com/repos/{GITHUB_REPO}/contents/data.json?ref={GITHUB_BRANCH}"
+    headers = {"Authorization": f"token {GITHUB_PAT}", "Content-Type": "application/json", "User-Agent": "sync-bot"}
+    resp = requests.get(api, headers=headers, timeout=15)
+    sha = resp.json().get("sha") if resp.status_code == 200 else ""
+    payload = {"message": f"auto sync {time.strftime('%Y-%m-%d %H:%M:%S')}",
+               "content": base64.b64encode(data_str.encode("utf-8")).decode("utf-8"),
+               "branch": GITHUB_BRANCH}
+    if sha:
+        payload["sha"] = sha
+    r = requests.put(api, headers=headers, json=payload, timeout=30)
+    if r.status_code in (200, 201):
+        print("[github] ✅ 推送成功")
         return True
-    else:
-        print(f'  ❌ Push failed: {resp.status_code}')
-        print(f'  Response: {resp.text[:200]}')
-        return False
+    print(f"[github] ❌ 推送失败 {r.status_code}: {r.text[:200]}")
+    return False
 
 def main():
-    if not COOKIE:
-        print('ERROR: COOKIE environment variable not set!')
-        print('')
-        print('To get your Cookie:')
-        print('1. Open https://docs.qq.com/sheet/DWk1ESWh0VFJKUGlI in your browser')
-        print('2. F12 → Application → Cookies → docs.qq.com')
-        print('3. Copy all cookie values as a single string')
-        print('4. Set COOKIE environment variable')
-        print('')
-        print('Or use the browser console bookmarklet:')
-        print('  document.cookie')
-        sys.exit(1)
-
-    print(f'=== Tencent Docs Sync Started ===')
-    print(f'Doc ID: {DOC_ID}')
-    print(f'Cookie length: {len(COOKIE)} chars')
-    print(f'XSRF: {get_xsrf_from_cookie(COOKIE)[:20]}...')
-    print()
-
-    # Step 1: 创建导出任务
-    export_result = create_export_task(COOKIE)
-
-    task_id = export_result.get('taskId', export_result.get('data', {}).get('taskId', ''))
-
-    if not task_id and export_result.get('retcode') == 100002:
-        print('❌ Cookie expired or invalid! Please update your Cookie.')
-        sys.exit(1)
-
-    if not task_id:
-        # 可能直接返回了下载URL
-        download_url = export_result.get('downloadUrl', export_result.get('url', export_result.get('data', {}).get('url', '')))
-        if not download_url:
-            print('❌ Could not create export task!')
-            print(f'Full response: {json.dumps(export_result, ensure_ascii=False)[:500]}')
-            sys.exit(1)
-
-    # Step 2: 等待导出完成
-    download_url = None
-    if task_id:
-        download_url = wait_for_export(COOKIE, task_id)
-
-    if not download_url:
-        print('❌ Export failed - no download URL!')
-        sys.exit(1)
-
-    # Step 3: 下载 xlsx
-    xlsx_path = download_xlsx(download_url, COOKIE)
-    if not xlsx_path:
-        sys.exit(1)
-
-    # Step 4: 解析数据
-    headers, rows = parse_xlsx(xlsx_path)
-    dashboard_rows = format_for_dashboard(headers, rows)
-
-    # Step 5: 生成 data.json
+    print("=== 1) 解密 qclaw cookie ===")
+    pw = decrypt_cookies()
+    print(f"  {len(pw)} 个 qq.com cookie")
+    print("=== 2) Playwright 读取表格 ===")
+    grid = extract_grid(pw)
+    print(f"  网格: {len(grid)} 行 × {len(grid[0]) if grid else 0} 列")
+    header, rows = build_rows(grid)
+    print(f"  表头: {header}")
+    print(f"  数据行: {len(rows)}")
     data = {
-        'lastUpdated': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
-        'source': 'tencent-docs-auto-sync',
-        'rowCount': len(dashboard_rows),
-        'rows': dashboard_rows,
+        "lastUpdated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "source": "tencent-docs-live",
+        "rowCount": len(rows),
+        "columns": header,
+        "rows": rows,
     }
+    data_str = json.dumps(data, ensure_ascii=False, indent=2)
+    with open(OUT_JSON, "w", encoding="utf-8") as f:
+        f.write(data_str)
+    print(f"=== ✅ 已生成 {OUT_JSON} ({len(rows)} 行) ===")
+    if rows:
+        print("示例首行:", json.dumps(rows[0], ensure_ascii=False)[:400])
+    push_github(data_str)
 
-    output_path = os.path.join(os.path.dirname(__file__), 'data.json')
-    with open(output_path, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-
-    print(f'[4] Generated data.json: {len(dashboard_rows)} rows')
-
-    # Step 6: 推送到 GitHub
-    push_success = push_to_github(output_path)
-
-    # 清理临时文件
-    try:
-        os.unlink(xlsx_path)
-    except:
-        pass
-
-    print()
-    if push_success:
-        print('=== ✅ SYNC COMPLETE ===')
-    else:
-        print('=== ⚠️ SYNC PARTIAL (data.json generated, push failed) ===')
-        print(f'  data.json is at: {output_path}')
-
-    return push_success
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
