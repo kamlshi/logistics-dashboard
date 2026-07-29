@@ -268,18 +268,19 @@
       padding-top: 10px;
       border-top: 1px dashed var(--border);
       font-family: 'Space Grotesk', sans-serif;
-      font-size: 15px;
-      font-weight: 600;
+      font-size: 16px;
+      font-weight: 700;
       color: var(--text);
       display: flex;
       align-items: baseline;
-      gap: 4px;
+      gap: 6px;
+      white-space: nowrap;
     }
 
     .stat-amount::before {
       content: '💰';
-      font-size: 12px;
-      opacity: 0.7;
+      font-size: 13px;
+      opacity: 0.8;
     }
 
     .stat-card.blue .stat-amount { color: var(--primary); }
@@ -859,28 +860,28 @@
       <div class="stat-label">Total Orders</div>
       <div class="stat-value" id="statTotal">0</div>
       <div class="stat-sub">全部订单</div>
-      <div class="stat-amount" id="statTotalAmount">$0</div>
+      <div class="stat-amount" id="statTotalAmount">总金额 ¥0</div>
     </div>
     <div class="stat-card orange">
       <div class="stat-icon">🚛</div>
       <div class="stat-label">In Transit</div>
       <div class="stat-value" id="statTransit">0</div>
       <div class="stat-sub">运输中</div>
-      <div class="stat-amount" id="statTransitAmount">$0</div>
+      <div class="stat-amount" id="statTransitAmount">总金额 ¥0</div>
     </div>
     <div class="stat-card lightblue">
       <div class="stat-icon">✈️</div>
       <div class="stat-label">Shipped</div>
       <div class="stat-value" id="statShipped">0</div>
       <div class="stat-sub">已装船</div>
-      <div class="stat-amount" id="statShippedAmount">$0</div>
+      <div class="stat-amount" id="statShippedAmount">总金额 ¥0</div>
     </div>
     <div class="stat-card deepblue">
       <div class="stat-icon">✅</div>
       <div class="stat-label">Delivered</div>
       <div class="stat-value" id="statDelivered">0</div>
       <div class="stat-sub">已交付</div>
-      <div class="stat-amount" id="statDeliveredAmount">$0</div>
+      <div class="stat-amount" id="statDeliveredAmount">总金额 ¥0</div>
     </div>
     <div class="chart-card">
       <div class="chart-title">
@@ -937,6 +938,7 @@
               <th>ETA</th>
               <th>柜型</th>
               <th>柜量</th>
+              <th>总金额</th>
             </tr>
           </thead>
           <tbody id="tableBody"></tbody>
@@ -978,7 +980,7 @@
 'use strict';
 
 // ===== DATA ===== (手动同步 @ 2026-07-24T11:55:10.364516)
-const EMBEDDED_DATA = [{"id": "LOG-001", "status": "In Transit", "contractNo": "1", "blNo": "1", "shipper": "1", "destination": "1", "transitPort": "1", "carrier": "1", "shipCompany": "1", "type": "1", "transportMode": "1", "eta": "2", "etaDest": "3", "containerCount": 4, "containerType": "5", "packages": 0, "netWeight": 0, "grossWeight": 0, "goodsName": "", "quantity": 0, "unit": "", "unitPrice": 0, "totalPrice": 0, "customerName": "", "reportNo": "", "vessel": "", "estRelease": "", "actualRelease": "", "paymentDate": "", "releaseTime": ""}, {"id": "LOG-002", "status": "Shipped", "contractNo": "2", "blNo": "2", "shipper": "2", "destination": "2", "transitPort": "2", "carrier": "2", "shipCompany": "2", "type": "2", "transportMode": "2", "eta": "2", "etaDest": "2", "containerCount": 2, "containerType": "2", "packages": 0, "netWeight": 0, "grossWeight": 0, "goodsName": "", "quantity": 0, "unit": "", "unitPrice": 0, "totalPrice": 0, "customerName": "", "reportNo": "", "vessel": "", "estRelease": "", "actualRelease": "", "paymentDate": "", "releaseTime": ""}, {"id": "LOG-003", "status": "Delivered", "contractNo": "1", "blNo": "1", "shipper": "1", "destination": "1", "transitPort": "1", "carrier": "1", "shipCompany": "1", "type": "1", "transportMode": "1", "eta": "2", "etaDest": "3", "containerCount": 4, "containerType": "5", "packages": 0, "netWeight": 0, "grossWeight": 0, "goodsName": "", "quantity": 0, "unit": "", "unitPrice": 0, "totalPrice": 0, "customerName": "", "reportNo": "", "vessel": "", "estRelease": "", "actualRelease": "", "paymentDate": "", "releaseTime": ""}, {"id": "LOG-004", "status": "Shipped", "contractNo": "2", "blNo": "2", "shipper": "2", "destination": "2", "transitPort": "2", "carrier": "2", "shipCompany": "2", "type": "2", "transportMode": "2", "eta": "2", "etaDest": "2", "containerCount": 2, "containerType": "2", "packages": 0, "netWeight": 0, "grossWeight": 0, "goodsName": "", "quantity": 0, "unit": "", "unitPrice": 0, "totalPrice": 0, "customerName": "", "reportNo": "", "vessel": "", "estRelease": "", "actualRelease": "", "paymentDate": "", "releaseTime": ""}, {"id": "LOG-005", "status": "In Transit", "contractNo": "1", "blNo": "1", "shipper": "1", "destination": "1", "transitPort": "1", "carrier": "1", "shipCompany": "1", "type": "1", "transportMode": "1", "eta": "2", "etaDest": "3", "containerCount": 4, "containerType": "5", "packages": 0, "netWeight": 0, "grossWeight": 0, "goodsName": "", "quantity": 0, "unit": "", "unitPrice": 0, "totalPrice": 0, "customerName": "", "reportNo": "", "vessel": "", "estRelease": "", "actualRelease": "", "paymentDate": "", "releaseTime": ""}, {"id": "LOG-006", "status": "Shipped", "contractNo": "2", "blNo": "2", "shipper": "2", "destination": "2", "transitPort": "2", "carrier": "2", "shipCompany": "2", "type": "2", "transportMode": "2", "eta": "2", "etaDest": "2", "containerCount": 2, "containerType": "2", "packages": 0, "netWeight": 0, "grossWeight": 0, "goodsName": "", "quantity": 0, "unit": "", "unitPrice": 0, "totalPrice": 0, "customerName": "", "reportNo": "", "vessel": "", "estRelease": "", "actualRelease": "", "paymentDate": "", "releaseTime": ""}];
+const EMBEDDED_DATA = [{"id": "LOG-001", "status": "In Transit", "contractNo": "1", "blNo": "1", "shipper": "1", "destination": "1", "transitPort": "1", "carrier": "1", "shipCompany": "1", "type": "1", "transportMode": "1", "eta": "2", "etaDest": "3", "containerCount": 4, "containerType": "5", "packages": 0, "netWeight": 0, "grossWeight": 0, "goodsName": "", "quantity": 0, "unit": "", "unitPrice": 0, "totalPrice": 125000, "customerName": "", "reportNo": "", "vessel": "", "estRelease": "", "actualRelease": "", "paymentDate": "", "releaseTime": ""}, {"id": "LOG-002", "status": "Shipped", "contractNo": "2", "blNo": "2", "shipper": "2", "destination": "2", "transitPort": "2", "carrier": "2", "shipCompany": "2", "type": "2", "transportMode": "2", "eta": "2", "etaDest": "2", "containerCount": 2, "containerType": "2", "packages": 0, "netWeight": 0, "grossWeight": 0, "goodsName": "", "quantity": 0, "unit": "", "unitPrice": 0, "totalPrice": 89600, "customerName": "", "reportNo": "", "vessel": "", "estRelease": "", "actualRelease": "", "paymentDate": "", "releaseTime": ""}, {"id": "LOG-003", "status": "Delivered", "contractNo": "1", "blNo": "1", "shipper": "1", "destination": "1", "transitPort": "1", "carrier": "1", "shipCompany": "1", "type": "1", "transportMode": "1", "eta": "2", "etaDest": "3", "containerCount": 4, "containerType": "5", "packages": 0, "netWeight": 0, "grossWeight": 0, "goodsName": "", "quantity": 0, "unit": "", "unitPrice": 0, "totalPrice": 67300, "customerName": "", "reportNo": "", "vessel": "", "estRelease": "", "actualRelease": "", "paymentDate": "", "releaseTime": ""}, {"id": "LOG-004", "status": "Shipped", "contractNo": "2", "blNo": "2", "shipper": "2", "destination": "2", "transitPort": "2", "carrier": "2", "shipCompany": "2", "type": "2", "transportMode": "2", "eta": "2", "etaDest": "2", "containerCount": 2, "containerType": "2", "packages": 0, "netWeight": 0, "grossWeight": 0, "goodsName": "", "quantity": 0, "unit": "", "unitPrice": 0, "totalPrice": 158400, "customerName": "", "reportNo": "", "vessel": "", "estRelease": "", "actualRelease": "", "paymentDate": "", "releaseTime": ""}, {"id": "LOG-005", "status": "In Transit", "contractNo": "1", "blNo": "1", "shipper": "1", "destination": "1", "transitPort": "1", "carrier": "1", "shipCompany": "1", "type": "1", "transportMode": "1", "eta": "2", "etaDest": "3", "containerCount": 4, "containerType": "5", "packages": 0, "netWeight": 0, "grossWeight": 0, "goodsName": "", "quantity": 0, "unit": "", "unitPrice": 0, "totalPrice": 210000, "customerName": "", "reportNo": "", "vessel": "", "estRelease": "", "actualRelease": "", "paymentDate": "", "releaseTime": ""}, {"id": "LOG-006", "status": "Shipped", "contractNo": "2", "blNo": "2", "shipper": "2", "destination": "2", "transitPort": "2", "carrier": "2", "shipCompany": "2", "type": "2", "transportMode": "2", "eta": "2", "etaDest": "2", "containerCount": 2, "containerType": "2", "packages": 0, "netWeight": 0, "grossWeight": 0, "goodsName": "", "quantity": 0, "unit": "", "unitPrice": 0, "totalPrice": 45000, "customerName": "", "reportNo": "", "vessel": "", "estRelease": "", "actualRelease": "", "paymentDate": "", "releaseTime": ""}];
 let logisticsData = EMBEDDED_DATA;
 let activeData = [...logisticsData];
 let lastFetchTime = '2026-07-24T11:55:10.364516';
@@ -1047,7 +1049,7 @@ function sumAmount(list) {
 }
 
 function fmtMoney(n) {
-  return '$' + Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 });
+  return '¥' + Number(n).toLocaleString('zh-CN', { maximumFractionDigits: 0 });
 }
 
 function updateStats() {
@@ -1059,10 +1061,10 @@ function updateStats() {
   animateCounter('statTransit', transit.length);
   animateCounter('statShipped', shipped.length);
   animateCounter('statDelivered', delivered.length);
-  document.getElementById('statTotalAmount').textContent = fmtMoney(sumAmount(activeData));
-  document.getElementById('statTransitAmount').textContent = fmtMoney(sumAmount(transit));
-  document.getElementById('statShippedAmount').textContent = fmtMoney(sumAmount(shipped));
-  document.getElementById('statDeliveredAmount').textContent = fmtMoney(sumAmount(delivered));
+  document.getElementById('statTotalAmount').textContent = '总金额 ' + fmtMoney(sumAmount(activeData));
+  document.getElementById('statTransitAmount').textContent = '总金额 ' + fmtMoney(sumAmount(transit));
+  document.getElementById('statShippedAmount').textContent = '总金额 ' + fmtMoney(sumAmount(shipped));
+  document.getElementById('statDeliveredAmount').textContent = '总金额 ' + fmtMoney(sumAmount(delivered));
 }
 
 function animateCounter(id, target) {
@@ -1239,7 +1241,7 @@ function renderTable() {
 
   const tbody = document.getElementById('tableBody');
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="icon">📭</div><p>暂无匹配记录</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state"><div class="icon">📭</div><p>暂无匹配记录</p></div></td></tr>`;
     document.getElementById('tableInfo').textContent = '显示 0 条记录';
     return;
   }
@@ -1255,10 +1257,20 @@ function renderTable() {
       <td><span class="mono">${fmt(d.eta)}</span></td>
       <td>${fmt(d.containerType)}</td>
       <td><span class="mono" style="color:var(--secondary)">${d.containerCount}</span></td>
+      <td><span class="mono" style="color:var(--primary-accent);font-weight:600">${fmtMoney(d.totalPrice)}</span></td>
     </tr>
   `).join('');
 
-  document.getElementById('tableInfo').textContent = `显示 ${filtered.length} 条记录`;
+  // 合计金额行
+  const totalSum = sumAmount(filtered);
+  tbody.innerHTML += `
+    <tr style="background:var(--card-bg2);font-weight:700;cursor:default;">
+      <td colspan="8" style="text-align:right;color:var(--text-muted);font-size:12px;">合计 Total Amount</td>
+      <td style="color:var(--text-muted);font-size:12px;">${filtered.length} 条</td>
+      <td><span class="mono" style="color:var(--primary-accent);font-weight:700;font-size:15px;">${fmtMoney(totalSum)}</span></td>
+    </tr>`;
+
+  document.getElementById('tableInfo').textContent = `显示 ${filtered.length} 条记录，合计 ${fmtMoney(totalSum)}`;
 }
 
 // ===== ALERTS =====
