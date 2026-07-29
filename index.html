@@ -264,29 +264,23 @@
     }
 
     .stat-amount {
-      margin-top: 10px;
-      padding-top: 10px;
-      border-top: 1px dashed var(--border);
+      margin-top: 12px;
+      padding: 4px 10px;
+      border-radius: 8px;
       font-family: 'Space Grotesk', sans-serif;
-      font-size: 16px;
-      font-weight: 700;
-      color: var(--text);
-      display: flex;
-      align-items: baseline;
-      gap: 6px;
-      white-space: nowrap;
-    }
-
-    .stat-amount::before {
-      content: '💰';
       font-size: 13px;
-      opacity: 0.8;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: baseline;
+      gap: 4px;
+      white-space: nowrap;
+      line-height: 1.6;
     }
 
-    .stat-card.blue .stat-amount { color: var(--primary); }
-    .stat-card.orange .stat-amount { color: #c2410c; }
-    .stat-card.lightblue .stat-amount { color: #2563eb; }
-    .stat-card.deepblue .stat-amount { color: #1d4ed8; }
+    .stat-card.blue .stat-amount { color: var(--secondary); background: rgba(59,130,246,0.08); }
+    .stat-card.orange .stat-amount { color: #c2410c; background: rgba(234,88,12,0.08); }
+    .stat-card.lightblue .stat-amount { color: var(--secondary); background: rgba(59,130,246,0.08); }
+    .stat-card.deepblue .stat-amount { color: var(--primary); background: rgba(37,99,235,0.08); }
 
     /* ===== METRICS ROW (8等份: 统计卡片占4 + 图表各占2) ===== */
     .metrics-row {
@@ -860,28 +854,28 @@
       <div class="stat-label">Total Orders</div>
       <div class="stat-value" id="statTotal">0</div>
       <div class="stat-sub">全部订单</div>
-      <div class="stat-amount" id="statTotalAmount">总金额 ¥0</div>
+      <div class="stat-amount" id="statTotalAmount">合计 ¥0</div>
     </div>
     <div class="stat-card orange">
       <div class="stat-icon">🚛</div>
       <div class="stat-label">In Transit</div>
       <div class="stat-value" id="statTransit">0</div>
       <div class="stat-sub">运输中</div>
-      <div class="stat-amount" id="statTransitAmount">总金额 ¥0</div>
+      <div class="stat-amount" id="statTransitAmount">合计 ¥0</div>
     </div>
     <div class="stat-card lightblue">
       <div class="stat-icon">✈️</div>
       <div class="stat-label">Shipped</div>
       <div class="stat-value" id="statShipped">0</div>
       <div class="stat-sub">已装船</div>
-      <div class="stat-amount" id="statShippedAmount">总金额 ¥0</div>
+      <div class="stat-amount" id="statShippedAmount">合计 ¥0</div>
     </div>
     <div class="stat-card deepblue">
       <div class="stat-icon">✅</div>
       <div class="stat-label">Delivered</div>
       <div class="stat-value" id="statDelivered">0</div>
       <div class="stat-sub">已交付</div>
-      <div class="stat-amount" id="statDeliveredAmount">总金额 ¥0</div>
+      <div class="stat-amount" id="statDeliveredAmount">合计 ¥0</div>
     </div>
     <div class="chart-card">
       <div class="chart-title">
@@ -1061,10 +1055,10 @@ function updateStats() {
   animateCounter('statTransit', transit.length);
   animateCounter('statShipped', shipped.length);
   animateCounter('statDelivered', delivered.length);
-  document.getElementById('statTotalAmount').textContent = '总金额 ' + fmtMoney(sumAmount(activeData));
-  document.getElementById('statTransitAmount').textContent = '总金额 ' + fmtMoney(sumAmount(transit));
-  document.getElementById('statShippedAmount').textContent = '总金额 ' + fmtMoney(sumAmount(shipped));
-  document.getElementById('statDeliveredAmount').textContent = '总金额 ' + fmtMoney(sumAmount(delivered));
+  document.getElementById('statTotalAmount').textContent = '合计 ' + fmtMoney(sumAmount(activeData));
+  document.getElementById('statTransitAmount').textContent = '合计 ' + fmtMoney(sumAmount(transit));
+  document.getElementById('statShippedAmount').textContent = '合计 ' + fmtMoney(sumAmount(shipped));
+  document.getElementById('statDeliveredAmount').textContent = '合计 ' + fmtMoney(sumAmount(delivered));
 }
 
 function animateCounter(id, target) {
@@ -1257,7 +1251,7 @@ function renderTable() {
       <td><span class="mono">${fmt(d.eta)}</span></td>
       <td>${fmt(d.containerType)}</td>
       <td><span class="mono" style="color:var(--secondary)">${d.containerCount}</span></td>
-      <td><span class="mono" style="color:var(--primary-accent);font-weight:600">${fmtMoney(d.totalPrice)}</span></td>
+      <td><span class="mono" style="color:var(--text);font-weight:500">${fmtMoney(d.totalPrice)}</span></td>
     </tr>
   `).join('');
 
@@ -1265,9 +1259,9 @@ function renderTable() {
   const totalSum = sumAmount(filtered);
   tbody.innerHTML += `
     <tr style="background:var(--card-bg2);font-weight:700;cursor:default;">
-      <td colspan="8" style="text-align:right;color:var(--text-muted);font-size:12px;">合计 Total Amount</td>
-      <td style="color:var(--text-muted);font-size:12px;">${filtered.length} 条</td>
-      <td><span class="mono" style="color:var(--primary-accent);font-weight:700;font-size:15px;">${fmtMoney(totalSum)}</span></td>
+      <td colspan="8" style="text-align:right;color:var(--text-muted);font-size:13px;letter-spacing:0.5px;">合计</td>
+      <td style="color:var(--text-muted);font-size:13px;">${filtered.length} 条</td>
+      <td><span class="mono" style="color:var(--primary-accent);font-weight:600;font-size:14px;">${fmtMoney(totalSum)}</span></td>
     </tr>`;
 
   document.getElementById('tableInfo').textContent = `显示 ${filtered.length} 条记录，合计 ${fmtMoney(totalSum)}`;
