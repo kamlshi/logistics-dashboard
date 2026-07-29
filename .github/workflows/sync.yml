@@ -1,64 +1,35 @@
-name: 同步腾讯文档数据
+name: 同步说明（数据同步已改为本机常驻）
+
+# ============================================================
+# 本仓库的腾讯文档数据同步，已改为「本机常驻抓取」模式，
+# 不再由 GitHub Actions 云端执行（云端无法访问本机浏览器 Cookie）。
+#
+# 新方案（长期有效，无需手动复制 Cookie）：
+#   1. 本机复用已登录的 qclaw / Edge 浏览器登录态（Cookie 由浏览器自动续期）
+#   2. 本地 sync.py 解密浏览器 Cookie → Playwright 打开腾讯文档
+#      → 直接从页面内存模型读取整张表 → 生成 data.json
+#   3. 推送 data.json 到本仓库 main 分支（GitHub Pages 自动发布）
+#   4. 看板 index.html 轮询 https://kamlshi.github.io/logistics-dashboard/data.json
+#
+# 定时由本机的 WorkBuddy 自动化（或 Windows 任务计划程序）每 30 分钟跑一次：
+#   python sync.py
+# ============================================================
 
 on:
-  # 手动触发（随时可以点按钮跑一次）
+  # 仅保留手动触发，用于说明 / 排查，不再自动跑云端同步
   workflow_dispatch:
-
-  # 定时触发：每 30 分钟同步一次
-  schedule:
-    - cron: '*/30 * * * *'
-
-permissions:
-  contents: write
+    inputs:
+      note:
+        description: '仅说明用途，不执行云端同步'
+        required: false
+        default: 'sync runs locally via qclaw + WorkBuddy automation'
 
 jobs:
-  sync:
+  info:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-
     steps:
-      - name: 检出代码
-        uses: actions/checkout@v4
-
-      - name: 设置 Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: 安装依赖
-        run: pip install requests openpyxl
-
-      - name: 同步腾讯文档数据
-        env:
-          COOKIE: ${{ secrets.TENCENT_COOKIE }}
-          DOC_ID: DWk1ESWh0VFJKUGlI
-          PAD_ID: ZMDIhtTRJPiH
-          GITHUB_PAT: ${{ secrets.GITHUB_PAT }}
-          GITHUB_REPO: kamlshi/logistics-dashboard
-        run: python sync.py
-
-      - name: 检查并推送 data.json
+      - name: 说明
         run: |
-          if [ -f data.json ]; then
-            # 使用 GitHub API 推送（避免 git push 问题）
-            SHA=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_PAT }}" \
-              "https://api.github.com/repos/kamlshi/logistics-dashboard/contents/data.json" | jq -r '.sha // empty')
-
-            CONTENT=$(base64 -w 0 data.json)
-
-            PAYLOAD=$(jq -n \
-              --arg msg "Auto sync: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" \
-              --arg content "$CONTENT" \
-              --arg sha "$SHA" \
-              '{message: $msg, content: $content, sha: $sha}')
-
-            curl -s -X PUT \
-              -H "Authorization: token ${{ secrets.GITHUB_PAT }}" \
-              -H "Content-Type: application/json" \
-              -d "$PAYLOAD" \
-              "https://api.github.com/repos/kamlshi/logistics-dashboard/contents/data.json"
-
-            echo "✅ data.json 推送成功"
-          else
-            echo "❌ sync.py 未生成 data.json，跳过推送"
-          fi
+          echo "数据同步由本机 sync.py + WorkBuddy 定时自动化完成。"
+          echo "云端 GitHub Actions 不再执行同步（无法访问本机浏览器 Cookie）。"
+          echo "如需立即同步，请在本机运行：python sync.py"
