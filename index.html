@@ -989,22 +989,20 @@ let lastFetchTime = '2026-07-24T11:55:10.364516';
 // ===== END DATA =====
 
 // ===== FETCH =====
-// 实时同步 API 地址（Cloudflare Worker 中转）
-// 部署 Worker 后改成你的实际地址，例如：https://logistics-sync.xxx.workers.dev/api/sync
-const SYNC_API_URL = 'https://logistics-dashboard-zeta.vercel.app/api/sync';
+// 数据源：GitHub Pages 上的 data.json（由 sync.py 通过 GitHub Actions 定时更新）
+const DATA_URL = 'https://kamlshi.github.io/logistics-dashboard/data.json';
 
-// 统一走 Worker API：服务端实时重新抓取腾讯文档并返回最新数据
 async function fetchDataJSON() {
   try {
-    const resp = await fetch(SYNC_API_URL, {cache: 'no-store'});
+    const resp = await fetch(DATA_URL, {cache: 'no-store'});
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const json = await resp.json();
-    logisticsData = json.orders || [];
-    lastFetchTime = json.updatedAt || new Date().toISOString();
+    logisticsData = json.rows || json.orders || [];
+    lastFetchTime = json.lastUpdated || new Date().toISOString();
     activeData = [...logisticsData];
     return true;
   } catch (e) {
-    console.warn('[Dashboard] /api/sync 失败，使用内嵌兜底:', e.message);
+    console.warn('[Dashboard] data.json 获取失败，使用内嵌兜底:', e.message);
     // 兜底：使用内嵌数据（离线/首次加载）
     if (logisticsData.length > 0) {
       activeData = [...logisticsData];
