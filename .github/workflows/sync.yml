@@ -4,13 +4,10 @@ on:
   # 手动触发（随时可以点按钮跑一次）
   workflow_dispatch:
 
-  # 定时触发：每 2 小时同步一次（UTC 时间，北京时间 = UTC + 8）
-  #   0,2,4,6,8,10,12,14,16,18,20,22 点 UTC
-  #   对应北京时间 8,10,12,14,16,18,20,22,0,2,4,6 点
+  # 定时触发：每 30 分钟同步一次
   schedule:
-    - cron: '0 */2 * * *'
+    - cron: '*/30 * * * *'
 
-# 允许写入仓库（用于提交更新后的 HTML）
 permissions:
   contents: write
 
@@ -28,48 +25,40 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: 同步腾讯文档数据（第1次尝试）
-        id: sync_attempt_1
-        env:
-          TENCENT_COOKIE: ${{ secrets.TENCENT_COOKIE }}
-          TENCENT_SHEET_ID: ${{ secrets.TENCENT_SHEET_ID }}
-          SHEET_TAB_NAME: ${{ secrets.SHEET_TAB_NAME }}
-        run: |
-          echo "=== 第1次同步尝试 ==="
-          echo "TENCENT_SHEET_ID: $TENCENT_SHEET_ID"
-          echo "Cookie 已配置: ${{ secrets.TENCENT_COOKIE != '' }}"
-          python sync.py
-        continue-on-error: true
+      - name: 安装依赖
+        run: pip install requests openpyxl
 
-      - name: 同步腾讯文档数据（第2次重试）
-        if: steps.sync_attempt_1.outcome == 'failure'
+      - name: 同步腾讯文档数据
         env:
-          TENCENT_COOKIE: ${{ secrets.TENCENT_COOKIE }}
-          TENCENT_SHEET_ID: ${{ secrets.TENCENT_SHEET_ID }}
-          SHEET_TAB_NAME: ${{ secrets.SHEET_TAB_NAME }}
-        run: |
-          echo "=== 第2次同步尝试（重试） ==="
-          sleep 10
-          python sync.py
+          COOKIE: ${{ secrets.TENCENT_COOKIE }}
+          DOC_ID: DWk1ESWh0VFJKUGlI
+          PAD_ID: ZMDIhtTRJPiH
+          GITHUB_PAT: ${{ secrets.GITHUB_PAT }}
+          GITHUB_REPO: kamlshi/logistics-dashboard
+        run: python sync.py
 
-      - name: 检查同步结果
-        id: check_result
+      - name: 检查并推送 data.json
         run: |
-          if git diff --quiet index.html; then
-            echo "changed=false" >> $GITHUB_OUTPUT
-            echo "数据无变化或同步失败"
+          if [ -f data.json ]; then
+            # 使用 GitHub API 推送（避免 git push 问题）
+            SHA=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_PAT }}" \
+              "https://api.github.com/repos/kamlshi/logistics-dashboard/contents/data.json" | jq -r '.sha // empty')
+
+            CONTENT=$(base64 -w 0 data.json)
+
+            PAYLOAD=$(jq -n \
+              --arg msg "Auto sync: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" \
+              --arg content "$CONTENT" \
+              --arg sha "$SHA" \
+              '{message: $msg, content: $content, sha: $sha}')
+
+            curl -s -X PUT \
+              -H "Authorization: token ${{ secrets.GITHUB_PAT }}" \
+              -H "Content-Type: application/json" \
+              -d "$PAYLOAD" \
+              "https://api.github.com/repos/kamlshi/logistics-dashboard/contents/data.json"
+
+            echo "✅ data.json 推送成功"
           else
-            echo "changed=true" >> $GITHUB_OUTPUT
-            echo "检测到数据变化"
+            echo "❌ sync.py 未生成 data.json，跳过推送"
           fi
-
-      - name: 提交并推送更新
-        if: steps.check_result.outputs.changed == 'true'
-        run: |
-          git config --local user.email "actions@github.com"
-          git config --local user.name "GitHub Actions Bot"
-
-          git add index.html
-          git commit -m "自动同步: 数据更新 $(date '+%Y-%m-%d %H:%M' -d '+8 hours')"
-          git push
-          echo "已推送，GitHub Pages 将自动重新部署"
