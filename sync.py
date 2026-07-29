@@ -229,7 +229,39 @@ def push_github(data_str):
     print(f"[github] ❌ 推送失败 {r.status_code}: {r.text[:200]}")
     return False
 
+class _Tee:
+    """同时输出到控制台和本地日志文件，便于定时任务排查。"""
+    def __init__(self, *streams):
+        self.streams = streams
+    def write(self, s):
+        for st in self.streams:
+            try: st.write(s)
+            except Exception: pass
+    def flush(self):
+        for st in self.streams:
+            try: st.flush()
+            except Exception: pass
+
 def main():
+    log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sync.log")
+    try:
+        _lf = open(log_path, "a", encoding="utf-8")
+    except Exception:
+        _lf = None
+    if _lf:
+        _lf.write("\n===== RUN %s =====\n" % time.strftime("%Y-%m-%d %H:%M:%S"))
+        sys.stdout = _Tee(sys.stdout, _lf)
+        sys.stderr = _Tee(sys.stderr, _lf)
+    try:
+        _real_main()
+    except Exception as e:
+        print("FATAL:", repr(e))
+        raise
+    finally:
+        if _lf:
+            _lf.close()
+
+def _real_main():
     print("=== 1) 解密 qclaw cookie ===")
     pw = decrypt_cookies()
     print(f"  {len(pw)} 个 qq.com cookie")
