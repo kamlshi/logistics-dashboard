@@ -589,6 +589,7 @@
     .alert-card.overdue::before { background: #ef4444; }
     .alert-card.urgent::before { background: var(--primary-accent); }
     .alert-card.no-payment::before { background: #f59e0b; }
+    .alert-card.note::before { background: #8b5cf6; }
 
     .alert-card-header {
       display: flex;
@@ -610,6 +611,7 @@
     .alert-tag.overdue { background: rgba(239,68,68,0.1); color: #dc2626; border: 1px solid rgba(239,68,68,0.25); }
     .alert-tag.urgent { background: rgba(234,88,12,0.1); color: #ea580c; border: 1px solid rgba(234,88,12,0.25); }
     .alert-tag.no-pay { background: rgba(245,158,11,0.1); color: #d97706; border: 1px solid rgba(245,158,11,0.25); }
+    .alert-tag.note { background: rgba(139,92,246,0.1); color: #7c3aed; border: 1px solid rgba(139,92,246,0.25); }
 
     .alert-time {
       font-size: 11px;
@@ -1032,6 +1034,13 @@ function fmt(v) {
   return v == null || v === '' ? '—' : String(v);
 }
 
+// 转义用户自由文本，避免拼进 innerHTML 时破坏结构 / XSS
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 function fmtNum(n) {
   if (n == null || n === '') return '—';
   return Number(n).toLocaleString('en-US');
@@ -1274,55 +1283,22 @@ function renderTable() {
 }
 
 // ===== ALERTS =====
+// 预警完全由「注意事项」列驱动：某行的注意事项非空即生成一条预警卡片
 function generateAlerts() {
   const alerts = [];
 
   activeData.forEach(d => {
-    // Overdue ETA
-    if (d.eta && d.eta < todayStr && d.status !== 'Delivered') {
-      const days = daysUntil(d.eta);
+    const note = (d.notes == null ? '' : String(d.notes)).trim();
+    if (note) {
       alerts.push({
-        type: 'overdue',
-        tag: '逾期',
+        type: 'note',
+        tag: '注意',
         id: d.id,
-        desc: `ETA 已逾期 ${Math.abs(days)} 天`,
-        route: `${fmt(d.shipper)} → ${fmt(d.destination)}`,
-        time: d.eta,
-      });
-    }
-
-    // Urgent (ETA within 5 days)
-    if (d.eta && d.eta >= todayStr && d.status !== 'Delivered') {
-      const days = daysUntil(d.eta);
-      if (days <= 5) {
-        alerts.push({
-          type: 'urgent',
-          tag: '紧急',
-          id: d.id,
-          desc: `ETA 剩余 ${days} 天，请及时跟进`,
-          route: `${fmt(d.shipper)} → ${fmt(d.destination)}`,
-          time: d.eta,
-        });
-      }
-    }
-
-    // No payment
-    if (!d.paymentDate && d.status !== 'Delivered') {
-      alerts.push({
-        type: 'no-pay',
-        tag: '未付款',
-        id: d.id,
-        desc: '尚未确认付款信息',
+        desc: note,                                          // 注意事项原文
         route: `${fmt(d.shipper)} → ${fmt(d.destination)}`,
         time: '',
       });
     }
-  });
-
-  // Sort: overdue first, then urgent, then no-payment
-  alerts.sort((a, b) => {
-    const order = { overdue: 0, urgent: 1, 'no-pay': 2 };
-    return order[a.type] - order[b.type];
   });
 
   return alerts;
@@ -1342,14 +1318,14 @@ function renderAlerts() {
   }
 
   document.getElementById('alertsList').innerHTML = alerts.map((a, i) => `
-    <div class="alert-card ${a.type}" onclick="openModal('${a.id}')" style="animation-delay:${i * 0.05}s">
+    <div class="alert-card ${a.type}" onclick="openModal('${esc(a.id)}')" style="animation-delay:${i * 0.05}s">
       <div class="alert-card-header">
-        <span class="alert-tag ${a.type}">${a.tag}</span>
-        <span class="alert-time">${a.id}</span>
+        <span class="alert-tag ${a.type}">${esc(a.tag)}</span>
+        <span class="alert-time">${esc(a.id)}</span>
       </div>
-      <div class="alert-id">${a.route.split(' → ')[0]}</div>
-      <div class="alert-desc">${a.desc}</div>
-      <div class="alert-route">${a.route}</div>
+      <div class="alert-id">${esc(a.route.split(' → ')[0])}</div>
+      <div class="alert-desc">${esc(a.desc)}</div>
+      <div class="alert-route">${esc(a.route)}</div>
     </div>
   `).join('');
 }
