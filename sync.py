@@ -131,8 +131,15 @@ def extract_grid(pw_cookies):
       function cellVal(cd) {
         if (cd == null) return '';
         if (typeof cd !== 'object') return cd;
+        // 公式单元格：cd.value 是公式定义对象，真实计算结果在 cd.value.formulaResult.value
+        if (cd.value !== undefined && cd.value !== null && typeof cd.value === 'object') {
+          var vObj = cd.value;
+          if (vObj.formulaResult && vObj.formulaResult.value !== undefined && vObj.formulaResult.value !== null && vObj.formulaResult.value !== '') return vObj.formulaResult.value;
+          if (vObj.value !== undefined && vObj.value !== null && vObj.value !== '') return vObj.value;
+        }
+        // 普通单元格：cd.value 是基本类型（数字/字符串）
         if (cd.value !== undefined && cd.value !== '' && cd.value !== null) return cd.value;
-        if (cd.formulaResult && cd.formulaResult.value !== undefined && cd.formulaResult.value !== '' && cd.formulaResult.value !== null) return cd.formulaResult.value;
+        if (cd.formattedValue !== undefined && cd.formattedValue !== '') return cd.formattedValue;
         if (cd.displayValue !== undefined && cd.displayValue !== '') return cd.displayValue;
         if (cd.text !== undefined) return cd.text;
         return '';
@@ -165,6 +172,23 @@ def extract_grid(pw_cookies):
     return grid
 
 # ---------- 4. 映射到看板字段 ----------
+NUMERIC_FIELDS = ("containerCount","packages","quantity","netWeight","grossWeight","unitPrice","totalPrice")
+
+def _num(v):
+    """安全转数字；公式单元格可能整体作为 dict 传回，需从中抠出 formulaResult.value。"""
+    if isinstance(v, dict):
+        fr = v.get("formulaResult") or {}
+        val = fr.get("value") if isinstance(fr, dict) else None
+        if val is None:
+            val = v.get("value")
+        v = val
+    if v in ("", None):
+        return 0
+    try:
+        return float(v)
+    except Exception:
+        return 0
+
 def build_rows(grid):
     if not grid:
         return [], []
@@ -195,9 +219,8 @@ def build_rows(grid):
                 v = r[i]
                 if v is None or v == "":
                     v = ""
-                if field in ("containerCount","containerType","packages","quantity","netWeight","grossWeight","unitPrice","totalPrice"):
-                    try: v = float(v) if v not in ("", None) else 0
-                    except Exception: v = str(v)
+                if field in NUMERIC_FIELDS:
+                    v = _num(v)
                 else:
                     v = str(v)
                 d[field] = v
@@ -285,6 +308,27 @@ def _real_main():
     if rows:
         print("示例首行:", json.dumps(rows[0], ensure_ascii=False)[:400])
     push_github(data_str)
+
+def run_sync():
+    """执行一次完整同步，返回结果字典（供本机同步服务 / 定时任务调用）。
+
+    不自带日志重定向；调用方（main / sync_server）自行负责日志与异常展示。
+    """
+    try:
+        _real_main()
+        try:
+            data = json.load(open(OUT_JSON, encoding="utf-8"))
+        except Exception:
+            data = {}
+        return {
+            "ok": True,
+            "lastUpdated": data.get("lastUpdated"),
+            "rowCount": data.get("rowCount"),
+            "message": "同步成功",
+        }
+    except Exception as e:
+        return {"ok": False, "message": "同步失败: %s" % repr(e)}
+
 
 if __name__ == "__main__":
     main()
