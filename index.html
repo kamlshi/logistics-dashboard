@@ -851,7 +851,7 @@
         <span id="lastUpdated">上次更新: 加载中...</span>
       </div>
       <div class="current-date" id="currentDate"></div>
-      <button class="refresh-btn" onclick="refreshData()">
+      <button class="refresh-btn" onclick="manualRefresh()">
         <span>🔄</span> 刷新数据
       </button>
     </div>
@@ -991,7 +991,7 @@ let lastFetchTime = '2026-07-24T11:55:10.364516';
 // ===== END DATA =====
 
 // ===== FETCH =====
-// 数据源：GitHub Pages 上的 data.json（由 sync.py 通过 GitHub Actions 定时更新）
+// 数据源：GitHub Pages 上的 data.json（由本机同步服务/定时任务 从腾讯文档实时同步）
 const DATA_URL = 'https://kamlshi.github.io/logistics-dashboard/data.json';
 
 async function fetchDataJSON() {
@@ -1434,14 +1434,48 @@ document.addEventListener('keydown', e => {
 });
 
 // ===== REFRESH =====
-async function refreshData() {
-  const btn = document.querySelector('.refresh-btn');
-  const dot = document.querySelector('.last-updated .dot');
-  const original = btn.innerHTML;
-  btn.innerHTML = '<span>⏳</span> 刷新中...';
-  btn.disabled = true;
-  if (dot) dot.style.background = '#f59e0b';
+// 通过本机同步中继（localhost:8765）即时从腾讯文档拉取最新数据并推送 GitHub Pages
+async function triggerSync() {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 90000);
+  try {
+    const resp = await fetch('http://127.0.0.1:8765/sync', {mode: 'cors', cache: 'no-store', signal: ctrl.signal});
+    clearTimeout(t);
+    if (!resp.ok) {
+      let msg = '同步服务返回错误';
+      try { const j = await resp.json(); msg = j.message || msg; } catch (e) {}
+      return {ok: false, message: msg};
+    }
+    const j = await resp.json();
+    if (j && j.ok) return {ok: true, rowCount: j.rowCount, lastUpdated: j.lastUpdated, message: j.message};
+    return {ok: false, message: (j && j.message) || '同步失败'};
+  } catch (e) {
+    clearTimeout(t);
+    // 本地服务未启动 / 网络不通：回退为仅重新加载已同步数据
+    return {ok: false, offline: true, message: '本地同步服务未启动'};
+  }
+}
 
+function showToast(msg, type) {
+  let el = document.getElementById('sync-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'sync-toast';
+    el.style.cssText = 'position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:9999;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:500;box-shadow:0 4px 18px rgba(0,0,0,.15);transition:opacity .3s, transform .3s;pointer-events:none;';
+    document.body.appendChild(el);
+  }
+  const colors = {success: '#16a34a', warn: '#d97706', error: '#dc2626'};
+  el.style.background = colors[type] || '#334155';
+  el.style.color = '#fff';
+  el.textContent = msg;
+  el.style.opacity = '1';
+  el.style.transform = 'translateX(-50%) translateY(0)';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateX(-50%) translateY(-8px)'; }, 3600);
+}
+
+// 仅重新加载最新 data.json 并渲染（自动轮询 / 初始化使用，不触发本地同步）
+async function loadAndRender() {
   const ok = await fetchDataJSON();
   if (ok) {
     initCarrierFilter();
@@ -1450,11 +1484,30 @@ async function refreshData() {
     renderTable();
     renderAlerts();
   }
-
   const now = new Date();
   const ts = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
-  document.getElementById('lastUpdated').textContent = `上次更新: ${ts}` + (ok ? '' : ' (离线缓存)');
+  const el = document.getElementById('lastUpdated');
+  if (el) el.textContent = `上次更新: ${ts}` + (ok ? '' : ' (离线缓存)');
+  const dot = document.querySelector('.last-updated .dot');
   if (dot) dot.style.background = ok ? '#4ade80' : '#f59e0b';
+  return ok;
+}
+
+// 手动点「刷新」：先触发本机同步（即时拉文档），再重新加载渲染
+async function manualRefresh() {
+  const btn = document.querySelector('.refresh-btn');
+  const dot = document.querySelector('.last-updated .dot');
+  const original = btn.innerHTML;
+  btn.innerHTML = '<span>⏳</span> 同步中...';
+  btn.disabled = true;
+  if (dot) dot.style.background = '#f59e0b';
+
+  const sync = await triggerSync();
+  if (sync.ok) showToast(`✅ 已从文档同步最新数据（${sync.rowCount ?? 0} 行）`, 'success');
+  else if (sync.offline) showToast('⚠️ 本地同步服务未启动，已加载最近已同步数据', 'warn');
+  else showToast('❌ 同步失败：' + (sync.message || ''), 'error');
+
+  await loadAndRender();
 
   btn.innerHTML = original;
   btn.disabled = false;
@@ -1463,19 +1516,14 @@ async function refreshData() {
 // ===== AUTO POLL =====
 function startAutoPoll(intervalMs) {
   if (autoPoller) clearInterval(autoPoller);
-  autoPoller = setInterval(refreshData, intervalMs);
+  autoPoller = setInterval(loadAndRender, intervalMs);
 }
 
 // ===== INIT =====
 async function init() {
   initDate();
-  // 页面加载即实时抓文档
-  await fetchDataJSON();
-  initCarrierFilter();
-  updateStats();
-  renderCharts();
-  renderTable();
-  renderAlerts();
+  // 页面加载即加载最新数据（真正的同步由手动「刷新」或本机定时任务触发）
+  await loadAndRender();
 
   const now = new Date();
   const ts = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
