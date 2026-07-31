@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-07-31T02:48:11Z",
+  "lastUpdated": "2026-07-31T03:08:15Z",
   "source": "tencent-docs-live",
   "rowCount": 5,
   "columns": [
@@ -25,6 +25,7 @@
     "单位",
     "单价",
     "总价",
+    "币值",
     "8",
     "检测报告编号",
     "实时轨迹（船名航次）",
