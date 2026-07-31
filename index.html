@@ -20,9 +20,12 @@
       --border: rgba(203, 213, 225, 0.6);
       --glow-blue: rgba(37, 99, 235, 0.1);
       --glow-orange: rgba(234, 88, 12, 0.1);
-      --status-transit: #ea580c;
+      --status-transit: #f59e0b;
       --status-shipped: #3b82f6;
-      --status-delivered: #2563eb;
+      --status-delivered: #10b981;
+      --status-transit-ink: #b45309;
+      --status-shipped-ink: #1d4ed8;
+      --status-delivered-ink: #047857;
       --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
       --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
       --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
@@ -31,7 +34,7 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Inter', system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
@@ -228,9 +231,9 @@
     }
 
     .stat-card.blue::before { background: linear-gradient(90deg, var(--primary), var(--secondary)); }
-    .stat-card.orange::before { background: linear-gradient(90deg, var(--primary-accent), var(--secondary-accent)); }
+    .stat-card.orange::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
     .stat-card.lightblue::before { background: linear-gradient(90deg, var(--secondary), var(--secondary-accent)); }
-    .stat-card.deepblue::before { background: linear-gradient(90deg, var(--primary), var(--primary-accent)); }
+    .stat-card.deepblue::before { background: linear-gradient(90deg, #10b981, #34d399); }
 
     .stat-icon {
       width: 44px; height: 44px;
@@ -241,9 +244,9 @@
     }
 
     .stat-card.blue .stat-icon { background: rgba(37,99,235,0.1); }
-    .stat-card.orange .stat-icon { background: rgba(234,88,12,0.1); }
+    .stat-card.orange .stat-icon { background: rgba(245,158,11,0.12); }
     .stat-card.lightblue .stat-icon { background: rgba(59,130,246,0.1); }
-    .stat-card.deepblue .stat-icon { background: rgba(37,99,235,0.15); }
+    .stat-card.deepblue .stat-icon { background: rgba(16,185,129,0.12); }
 
     .stat-label {
       font-size: 12px;
@@ -262,9 +265,9 @@
     }
 
     .stat-card.blue .stat-value { color: var(--secondary); }
-    .stat-card.orange .stat-value { color: var(--primary-accent); }
+    .stat-card.orange .stat-value { color: var(--status-transit-ink); }
     .stat-card.lightblue .stat-value { color: var(--secondary); }
-    .stat-card.deepblue .stat-value { color: var(--primary); }
+    .stat-card.deepblue .stat-value { color: var(--status-delivered-ink); }
 
     .stat-sub {
       font-size: 12px;
@@ -286,9 +289,9 @@
     }
 
     .stat-card.blue .stat-amount { color: var(--secondary); background: rgba(59,130,246,0.08); }
-    .stat-card.orange .stat-amount { color: #c2410c; background: rgba(234,88,12,0.08); }
+    .stat-card.orange .stat-amount { color: var(--status-transit-ink); background: rgba(245,158,11,0.10); }
     .stat-card.lightblue .stat-amount { color: var(--secondary); background: rgba(59,130,246,0.08); }
-    .stat-card.deepblue .stat-amount { color: var(--primary); background: rgba(37,99,235,0.08); }
+    .stat-card.deepblue .stat-amount { color: var(--status-delivered-ink); background: rgba(16,185,129,0.10); }
 
     /* ===== METRICS ROW (8等份: 统计卡片占4 + 图表各占2) ===== */
     .metrics-row {
@@ -494,9 +497,9 @@
       letter-spacing: 0.3px;
     }
 
-    .badge-transit { background: rgba(234,88,12,0.1); color: #c2410c; border: 1px solid rgba(234,88,12,0.25); }
-    .badge-shipped { background: rgba(59,130,246,0.1); color: #2563eb; border: 1px solid rgba(59,130,246,0.25); }
-    .badge-delivered { background: rgba(37,99,235,0.1); color: #1d4ed8; border: 1px solid rgba(37,99,235,0.25); }
+    .badge-transit { background: rgba(245,158,11,0.12); color: #b45309; border: 1px solid rgba(245,158,11,0.3); }
+    .badge-shipped { background: rgba(59,130,246,0.1); color: #1d4ed8; border: 1px solid rgba(59,130,246,0.25); }
+    .badge-delivered { background: rgba(16,185,129,0.12); color: #047857; border: 1px solid rgba(16,185,129,0.3); }
 
     .mono { font-family: 'Space Grotesk', monospace; font-size: 12px; }
 
@@ -812,7 +815,6 @@
     @media (max-width: 768px) {
       .container { padding: 16px; }
       .header { flex-direction: column; gap: 12px; align-items: flex-start; }
-      .charts-row { grid-template-columns: 1fr; }
       .stats-row { grid-template-columns: repeat(2, 1fr); }
       .detail-grid { grid-template-columns: 1fr; }
       .filter-row { flex-wrap: wrap; }
@@ -1034,6 +1036,17 @@ function fmt(v) {
   return v == null || v === '' ? '—' : String(v);
 }
 
+function formatSyncTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) {
+    const s = String(iso);
+    return s.length >= 19 ? s.slice(0, 19).replace('T', ' ') : s;
+  }
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
 // 转义用户自由文本，避免拼进 innerHTML 时破坏结构 / XSS
 function esc(s) {
   return String(s == null ? '' : s)
@@ -1105,10 +1118,13 @@ function initCarrierFilter() {
 
 // ===== CHART.JS CONFIGS =====
 const CHART_COLORS = {
-  primary: '#224FC2',
-  primaryAccent: '#F07C00',
-  secondary: '#4874CB',
-  secondaryAccent: '#F5B584',
+  transit: '#f59e0b',
+  shipped: '#3b82f6',
+  delivered: '#10b981',
+  primary: '#2563eb',
+  primaryAccent: '#f59e0b',
+  secondary: '#3b82f6',
+  secondaryAccent: '#34d399',
   teal: '#06b6d4',
 };
 
@@ -1141,8 +1157,8 @@ function renderCharts() {
       labels: ['运输中 In Transit', '已装船 Shipped', '已交付 Delivered'],
       datasets: [{
         data: [transit, shipped, delivered],
-        backgroundColor: [CHART_COLORS.primaryAccent, CHART_COLORS.secondary, CHART_COLORS.primary],
-        borderColor: '#1a2744',
+        backgroundColor: [CHART_COLORS.transit, CHART_COLORS.shipped, CHART_COLORS.delivered],
+        borderColor: '#ffffff',
         borderWidth: 3,
         hoverOffset: 8,
       }]
@@ -1181,7 +1197,7 @@ function renderCharts() {
   const mc = document.getElementById('modeChart').getContext('2d');
   const modeLabels = Object.keys(modeCounts);
   const modeValues = Object.values(modeCounts);
-  const pieColors = [CHART_COLORS.primary, CHART_COLORS.primaryAccent, CHART_COLORS.secondary, CHART_COLORS.teal, CHART_COLORS.secondaryAccent];
+  const pieColors = [CHART_COLORS.shipped, CHART_COLORS.transit, CHART_COLORS.delivered, CHART_COLORS.teal, CHART_COLORS.secondaryAccent];
 
   modeChartInstance = new Chart(mc, {
     type: 'pie',
@@ -1190,7 +1206,7 @@ function renderCharts() {
       datasets: [{
         data: modeValues,
         backgroundColor: pieColors.slice(0, modeLabels.length),
-        borderColor: '#1a2744',
+        borderColor: '#ffffff',
         borderWidth: 3,
         hoverOffset: 8,
       }]
@@ -1369,8 +1385,8 @@ const FIELD_GROUPS = [
   {
     title: '价格信息 Pricing',
     fields: [
-      { key: 'unitPrice', label: '单价 Unit Price (USD)' },
-      { key: 'totalPrice', label: '总价 Total Price (USD)' },
+      { key: 'unitPrice', label: '单价 Unit Price (¥)' },
+      { key: 'totalPrice', label: '总价 Total Price (¥)' },
       { key: 'customerName', label: '客户 Customer' },
     ]
   },
@@ -1484,10 +1500,9 @@ async function loadAndRender() {
     renderTable();
     renderAlerts();
   }
-  const now = new Date();
-  const ts = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
   const el = document.getElementById('lastUpdated');
-  if (el) el.textContent = `上次更新: ${ts}` + (ok ? '' : ' (离线缓存)');
+  const syncStr = formatSyncTime(lastFetchTime);
+  if (el) el.textContent = `文档同步于 ${syncStr}` + (ok ? '' : ' (离线缓存)');
   const dot = document.querySelector('.last-updated .dot');
   if (dot) dot.style.background = ok ? '#4ade80' : '#f59e0b';
   return ok;
@@ -1524,10 +1539,6 @@ async function init() {
   initDate();
   // 页面加载即加载最新数据（真正的同步由手动「刷新」或本机定时任务触发）
   await loadAndRender();
-
-  const now = new Date();
-  const ts = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
-  document.getElementById('lastUpdated').textContent = `上次更新: ${ts}`;
 
   // 每 30 秒自动刷新数据
   startAutoPoll(30000);
