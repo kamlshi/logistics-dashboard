@@ -29,6 +29,11 @@
       --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
       --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
       --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+      --brand-grad: linear-gradient(120deg, #2563eb 0%, #3b82f6 100%);
+      --card-tint-blue: linear-gradient(160deg, rgba(37,99,235,0.06), #ffffff 58%);
+      --card-tint-orange: linear-gradient(160deg, rgba(245,158,11,0.07), #ffffff 58%);
+      --card-tint-lightblue: linear-gradient(160deg, rgba(59,130,246,0.06), #ffffff 58%);
+      --card-tint-deepblue: linear-gradient(160deg, rgba(16,185,129,0.07), #ffffff 58%);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -75,6 +80,27 @@
       padding: 24px 24px 48px;
       position: relative;
       z-index: 1;
+    }
+
+    /* ===== SECTION LABELS ===== */
+    .section-label {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin: 0 4px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-label::before {
+      content: '';
+      width: 18px;
+      height: 2px;
+      background: var(--primary);
+      border-radius: 2px;
     }
 
     /* ===== HEADER ===== */
@@ -128,11 +154,15 @@
 
     .header-title {
       font-family: 'Space Grotesk', sans-serif;
-      font-size: 22px;
+      font-size: 23px;
       font-weight: 700;
       letter-spacing: -0.5px;
-      color: var(--text);
       line-height: 1.2;
+      color: #1e293b;
+      background: linear-gradient(120deg, #1e293b 0%, #2563eb 70%, #3b82f6 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
     }
 
     .header-subtitle {
@@ -152,8 +182,16 @@
       color: var(--text-muted);
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 7px;
+      background: var(--card-bg2);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 999px;
+      box-shadow: var(--shadow-sm);
     }
+
+    .last-updated .label { color: var(--text-muted); }
+    .last-updated .time { color: var(--text); font-family: 'Space Grotesk', sans-serif; font-weight: 600; }
 
     .last-updated .dot {
       width: 8px; height: 8px;
@@ -292,6 +330,11 @@
     .stat-card.orange .stat-amount { color: var(--status-transit-ink); background: rgba(245,158,11,0.10); }
     .stat-card.lightblue .stat-amount { color: var(--secondary); background: rgba(59,130,246,0.08); }
     .stat-card.deepblue .stat-amount { color: var(--status-delivered-ink); background: rgba(16,185,129,0.10); }
+
+    .stat-card.blue { background: var(--card-tint-blue); }
+    .stat-card.orange { background: var(--card-tint-orange); }
+    .stat-card.lightblue { background: var(--card-tint-lightblue); }
+    .stat-card.deepblue { background: var(--card-tint-deepblue); }
 
     /* ===== METRICS ROW (8等份: 统计卡片占4 + 图表各占2) ===== */
     .metrics-row {
@@ -500,6 +543,10 @@
     .badge-transit { background: rgba(245,158,11,0.12); color: #b45309; border: 1px solid rgba(245,158,11,0.3); }
     .badge-shipped { background: rgba(59,130,246,0.1); color: #1d4ed8; border: 1px solid rgba(59,130,246,0.25); }
     .badge-delivered { background: rgba(16,185,129,0.12); color: #047857; border: 1px solid rgba(16,185,129,0.3); }
+
+    .col-note { width: 48px; text-align: center; }
+    .note-flag { color: #f59e0b; font-size: 14px; cursor: help; }
+    .muted-dot { color: var(--border); }
 
     .mono { font-family: 'Space Grotesk', monospace; font-size: 12px; }
 
@@ -850,7 +897,8 @@
     <div class="header-right">
       <div class="last-updated">
         <span class="dot"></span>
-        <span id="lastUpdated">上次更新: 加载中...</span>
+        <span class="label">文档同步于</span>
+        <span class="time" id="lastUpdated">加载中...</span>
       </div>
       <div class="current-date" id="currentDate"></div>
       <button class="refresh-btn" onclick="manualRefresh()">
@@ -859,6 +907,8 @@
     </div>
   </header>
 
+  <!-- ===== SECTION: 核心概览 ===== -->
+  <div class="section-label">核心概览 · Overview</div>
   <!-- ===== METRICS ROW (8等份: 统计卡片x4 + 图表x2) ===== -->
   <div class="metrics-row">
     <div class="stat-card blue">
@@ -909,6 +959,8 @@
     </div>
   </div>
 
+  <!-- ===== SECTION: 明细与预警 ===== -->
+  <div class="section-label">明细与预警 · Details</div>
   <!-- ===== BOTTOM ROW ===== -->
   <div class="bottom-row">
     <!-- Table -->
@@ -938,6 +990,7 @@
               <th>合同号</th>
               <th>提单号</th>
               <th>状态</th>
+              <th class="col-note">提醒</th>
               <th>承运商</th>
               <th>启运港</th>
               <th>目的港</th>
@@ -1132,6 +1185,41 @@ Chart.defaults.color = '#8a9ab5';
 Chart.defaults.font.family = "'Space Grotesk', sans-serif";
 Chart.defaults.plugins.legend.display = false;
 
+// 环形图中心文字插件
+const centerTextPlugin = {
+  id: 'centerText',
+  afterDraw(chart, args, opts) {
+    if (!opts || !opts.text) return;
+    const { ctx, chartArea: { left, right, top, bottom } } = chart;
+    const cx = (left + right) / 2;
+    const cy = (top + bottom) / 2;
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = opts.color || '#1e293b';
+    ctx.font = "700 28px 'Space Grotesk', sans-serif";
+    ctx.fillText(opts.text, cx, cy - 6);
+    ctx.fillStyle = '#8a9ab5';
+    ctx.font = "600 11px 'Space Grotesk', sans-serif";
+    ctx.fillText(opts.sub || '', cx, cy + 16);
+    ctx.restore();
+  }
+};
+Chart.register(centerTextPlugin);
+
+const TOOLTIP_THEME = {
+  backgroundColor: '#ffffff',
+  titleColor: '#1e293b',
+  bodyColor: '#475569',
+  borderColor: 'rgba(37,99,235,0.18)',
+  borderWidth: 1,
+  titleFont: { family: "'Space Grotesk', sans-serif", size: 13, weight: '600' },
+  bodyFont: { family: "'Space Grotesk', sans-serif", size: 12 },
+  padding: 12,
+  cornerRadius: 10,
+  boxPadding: 6,
+};
+
 let statusChartInstance = null;
 let modeChartInstance = null;
 
@@ -1141,9 +1229,11 @@ function renderCharts() {
   const delivered = activeData.filter(d => d.status === 'Delivered').length;
 
   const modeCounts = {};
+  let modeContainerSum = 0;
   activeData.forEach(d => {
-    const mode = d.transportMode || 'Other';
+    const mode = d.transportMode || '其他';
     modeCounts[mode] = (modeCounts[mode] || 0) + 1;
+    modeContainerSum += Number(d.containerCount) || 0;
   });
 
   if (statusChartInstance) statusChartInstance.destroy();
@@ -1166,41 +1256,35 @@ function renderCharts() {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      cutout: '68%',
+      cutout: '66%',
+      layout: { padding: 4 },
       plugins: {
         legend: {
           display: true,
           position: 'bottom',
           labels: {
-            color: '#8a9ab5',
-            padding: 16,
+            color: '#64748b',
+            padding: 14,
             font: { size: 12, family: "'Space Grotesk', sans-serif" },
             usePointStyle: true,
             pointStyleWidth: 10,
           }
         },
-        tooltip: {
-          backgroundColor: '#1a2744',
-          borderColor: '#4874CB',
-          borderWidth: 1,
-          titleFont: { family: "'Space Grotesk', sans-serif", size: 13 },
-          bodyFont: { family: "'Space Grotesk', sans-serif", size: 12 },
-          padding: 12,
-          cornerRadius: 10,
-        }
+        centerText: { text: String(activeData.length), sub: '订单总数', color: '#1e293b' },
+        tooltip: TOOLTIP_THEME
       },
       animation: { animateRotate: true, duration: 1000, easing: 'easeOutQuart' }
     }
   });
 
-  // Pie
+  // 运输方式分布环形图（中心显示总柜量）
   const mc = document.getElementById('modeChart').getContext('2d');
   const modeLabels = Object.keys(modeCounts);
   const modeValues = Object.values(modeCounts);
   const pieColors = [CHART_COLORS.shipped, CHART_COLORS.transit, CHART_COLORS.delivered, CHART_COLORS.teal, CHART_COLORS.secondaryAccent];
 
   modeChartInstance = new Chart(mc, {
-    type: 'pie',
+    type: 'doughnut',
     data: {
       labels: modeLabels,
       datasets: [{
@@ -1214,27 +1298,22 @@ function renderCharts() {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      cutout: '66%',
+      layout: { padding: 4 },
       plugins: {
         legend: {
           display: true,
           position: 'bottom',
           labels: {
-            color: '#8a9ab5',
-            padding: 16,
+            color: '#64748b',
+            padding: 14,
             font: { size: 12, family: "'Space Grotesk', sans-serif" },
             usePointStyle: true,
             pointStyleWidth: 10,
           }
         },
-        tooltip: {
-          backgroundColor: '#1a2744',
-          borderColor: '#4874CB',
-          borderWidth: 1,
-          titleFont: { family: "'Space Grotesk', sans-serif", size: 13 },
-          bodyFont: { family: "'Space Grotesk', sans-serif", size: 12 },
-          padding: 12,
-          cornerRadius: 10,
-        }
+        centerText: { text: String(modeContainerSum), sub: '总柜量', color: '#1e293b' },
+        tooltip: TOOLTIP_THEME
       },
       animation: { animateRotate: true, duration: 1000, easing: 'easeOutQuart' }
     }
@@ -1260,13 +1339,13 @@ function renderTable() {
   const filtered = activeData.filter(d => {
     if (statusF && d.status !== statusF) return false;
     if (carrierF && d.carrier !== carrierF) return false;
-    if (search && !d.contractNo.toLowerCase().includes(search) && !d.blNo.toLowerCase().includes(search) && !d.customerName.toLowerCase().includes(search)) return false;
+    if (search && !d.contractNo.toLowerCase().includes(search) && !d.blNo.toLowerCase().includes(search) && !d.customerName.toLowerCase().includes(search) && !String(d.notes || '').toLowerCase().includes(search)) return false;
     return true;
   });
 
   const tbody = document.getElementById('tableBody');
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state"><div class="icon">📭</div><p>暂无匹配记录</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11"><div class="empty-state"><div class="icon">📭</div><p>暂无匹配记录</p></div></td></tr>`;
     document.getElementById('tableInfo').textContent = '显示 0 条记录';
     return;
   }
@@ -1276,6 +1355,7 @@ function renderTable() {
       <td><span class="mono">${fmt(d.contractNo)}</span></td>
       <td><span class="mono" style="color:var(--secondary-accent)">${fmt(d.blNo)}</span></td>
       <td>${getBadgeHtml(d.status)}</td>
+      <td class="col-note">${d.notes ? `<span class="note-flag" title="${esc(d.notes)}">⚠</span>` : '<span class="muted-dot">·</span>'}</td>
       <td>${fmt(d.carrier)}</td>
       <td>${fmt(d.shipper)}</td>
       <td>${fmt(d.destination)}</td>
@@ -1290,7 +1370,7 @@ function renderTable() {
   const totalSum = sumAmount(filtered);
   tbody.innerHTML += `
     <tr style="background:var(--card-bg2);font-weight:700;cursor:default;">
-      <td colspan="8" style="text-align:right;color:var(--text-muted);font-size:13px;letter-spacing:0.5px;">合计</td>
+      <td colspan="9" style="text-align:right;color:var(--text-muted);font-size:13px;letter-spacing:0.5px;">合计</td>
       <td style="color:var(--text-muted);font-size:13px;">${filtered.length} 条</td>
       <td><span class="mono" style="color:var(--primary-accent);font-weight:600;font-size:14px;">${fmtMoney(totalSum)}</span></td>
     </tr>`;
@@ -1502,7 +1582,7 @@ async function loadAndRender() {
   }
   const el = document.getElementById('lastUpdated');
   const syncStr = formatSyncTime(lastFetchTime);
-  if (el) el.textContent = `文档同步于 ${syncStr}` + (ok ? '' : ' (离线缓存)');
+  if (el) el.textContent = syncStr + (ok ? '' : ' (离线缓存)');
   const dot = document.querySelector('.last-updated .dot');
   if (dot) dot.style.background = ok ? '#4ade80' : '#f59e0b';
   return ok;
