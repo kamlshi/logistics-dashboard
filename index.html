@@ -540,7 +540,7 @@
     .note-flag { color: #f59e0b; font-size: 14px; cursor: help; }
     .note-inline {
       display: inline-block;
-      color: #d97706;
+      color: var(--text-muted);
       font-size: 12px;
       line-height: 1.4;
       max-width: 260px;
@@ -549,6 +549,7 @@
       text-overflow: ellipsis;
       vertical-align: top;
     }
+    .note-inline.alert { color: #d97706; font-weight: 600; }
     .note-inline:hover { white-space: normal; overflow: visible; }
     .muted-dot { color: var(--border); }
     /* 有预警(注意事项非空)的行高亮 */
@@ -1047,7 +1048,7 @@
               <th>合同号</th>
               <th>提单号</th>
               <th>状态</th>
-              <th class="col-note">注意事项 / 预警</th>
+              <th class="col-note">注意事项</th>
               <th>承运商</th>
               <th>启运港</th>
               <th>目的港</th>
@@ -1485,12 +1486,20 @@ function renderTable() {
     return;
   }
 
-  tbody.innerHTML = filtered.map((d, i) => `
-    <tr class="${d.notes ? 'has-alert' : ''}" onclick="openModal('${d.id}')" style="animation-delay:${i * 0.03}s">
+  tbody.innerHTML = filtered.map((d, i) => {
+    const note = d.notes == null ? '' : String(d.notes);
+    const isAlert = note.includes('预警');
+    const noteHtml = note
+      ? (isAlert
+          ? `<span class="note-inline alert" title="${esc(note)}">⚠ ${esc(note)}</span>`
+          : `<span class="note-inline" title="${esc(note)}">${esc(note)}</span>`)
+      : '<span class="muted-dot">·</span>';
+    return `
+    <tr class="${isAlert ? 'has-alert' : ''}" onclick="openModal('${d.id}')" style="animation-delay:${i * 0.03}s">
       <td><span class="mono">${fmt(d.contractNo)}</span></td>
       <td><span class="mono" style="color:var(--secondary-accent)">${fmt(d.blNo)}</span></td>
       <td>${getBadgeHtml(d.status)}</td>
-      <td class="col-note">${d.notes ? `<span class="note-inline" title="${esc(d.notes)}">⚠ ${esc(d.notes)}</span>` : '<span class="muted-dot">·</span>'}</td>
+      <td class="col-note">${noteHtml}</td>
       <td>${fmt(d.carrier)}</td>
       <td>${fmt(d.shipper)}</td>
       <td>${fmt(d.destination)}</td>
@@ -1499,7 +1508,8 @@ function renderTable() {
       <td><span class="mono" style="color:var(--secondary)">${d.containerCount}</span></td>
       <td><span class="mono" style="color:var(--text);font-weight:500">${fmtMoney(d.totalPrice)}</span></td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
 
   // 合计金额行
   const totalSum = sumAmount(filtered);
@@ -1512,8 +1522,8 @@ function renderTable() {
 
   document.getElementById('tableInfo').textContent = `显示 ${filtered.length} 条记录，合计 ${fmtMoney(totalSum)}`;
 
-  // 预警计数（合并进明细表后：统计"注意事项"非空的行）
-  const alertCount = filtered.filter(d => d.notes).length;
+  // 预警计数（仅统计"注意事项"中含"预警"字样的行）
+  const alertCount = filtered.filter(d => d.notes && String(d.notes).includes('预警')).length;
   const badge = document.getElementById('alertCount');
   if (alertCount > 0) {
     badge.textContent = `⚠ ${alertCount} 条预警`;
@@ -1524,7 +1534,7 @@ function renderTable() {
   }
 }
 
-// ===== ALERTS (已合并进物流明细表：注意事项非空的行在表格内高亮并内联展示) =====
+// ===== ALERTS (已合并进明细表：仅"注意事项"含"预警"字样的行才标黄高亮，列头为"注意事项") =====
 
 // ===== MODAL =====
 const FIELD_GROUPS = [
