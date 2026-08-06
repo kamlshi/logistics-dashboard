@@ -1128,7 +1128,7 @@ async function fetchDataJSON() {
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const raw = await resp.json();
     let json;
-    if (raw && raw.enc) {
+    if (raw && raw.data && raw.salt && raw.iv) {
       json = await decryptData(raw, sessionPassword); // 密码错误会在此抛异常
     } else {
       json = raw; // 兼容未加密的旧数据
