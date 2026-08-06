@@ -1232,15 +1232,34 @@ function initDate() {
 }
 
 // ===== STATS =====
+// 货币符号：跟随数据「币值」列（USD→$，其余/CNY/空→¥）
+let DISPLAY_SYMBOL = '¥';
+function updateCurrencySymbol(list) {
+  const cnt = {};
+  (list || []).forEach(d => {
+    const c = (d.currency || '').toString().trim().toUpperCase();
+    if (c) cnt[c] = (cnt[c] || 0) + 1;
+  });
+  let best = '', bestN = 0;
+  for (const k in cnt) { if (cnt[k] > bestN) { bestN = cnt[k]; best = k; } }
+  DISPLAY_SYMBOL = (best === 'USD') ? '$' : '¥';
+  // 同步更新统计卡片的「合计 X0」货币符号
+  ['statTotalAmount','statTransitAmount','statShippedAmount','statDeliveredAmount'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '合计 ' + DISPLAY_SYMBOL + '0';
+  });
+}
+
 function sumAmount(list) {
   return list.reduce((s, d) => s + (Number(d.totalPrice) || 0), 0);
 }
 
 function fmtMoney(n) {
-  return '¥' + Number(n).toLocaleString('zh-CN', { maximumFractionDigits: 0 });
+  return DISPLAY_SYMBOL + Number(n).toLocaleString('zh-CN', { maximumFractionDigits: 0 });
 }
 
 function updateStats() {
+  updateCurrencySymbol(activeData);
   const total = activeData.length;
   const transit = activeData.filter(d => d.status === 'In Transit');
   const shipped = activeData.filter(d => d.status === 'Shipped');
@@ -1578,8 +1597,8 @@ const FIELD_GROUPS = [
   {
     title: '价格信息 Pricing',
     fields: [
-      { key: 'unitPrice', label: '单价 Unit Price (¥)' },
-      { key: 'totalPrice', label: '总价 Total Price (¥)' },
+      { key: 'unitPrice', label: '单价 Unit Price' },
+      { key: 'totalPrice', label: '总价 Total Price' },
       { key: 'customerName', label: '客户 Customer' },
     ]
   },
@@ -1617,7 +1636,7 @@ function openModal(id) {
       const display = field.key === 'netWeight' || field.key === 'grossWeight'
         ? fmtNum(val)
         : field.key === 'unitPrice' || field.key === 'totalPrice'
-        ? fmtNum(val)
+        ? fmtMoney(val)
         : fmt(val);
       html += `
         <div class="detail-item">
