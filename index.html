@@ -1097,6 +1097,8 @@ const DATA_URL = 'https://kamlshi.github.io/logistics-dashboard/data.json';
 
 // 访问密码（仅存于内存，刷新页面后失效；不落盘、不进源码）
 let sessionPassword = '';
+// 自动轮询定时器句柄（首次使用前需声明，否则严格模式下 ReferenceError 导致自动刷新失效）
+let autoPoller = null;
 
 function b64ToBytes(b64) {
   const bin = atob(b64);
