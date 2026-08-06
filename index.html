@@ -394,22 +394,14 @@
       height: 260px;
     }
 
-    /* ===== BOTTOM ROW (8等份: 表格占6 + 预警占2) ===== */
+    /* ===== BOTTOM ROW (预警已合并进明细表，单栏展示) ===== */
     .bottom-row {
-      display: grid;
-      grid-template-columns: repeat(8, 1fr);
-      gap: 16px;
+      display: block;
       animation: fadeUp 0.6s ease-out 0.7s both;
-      align-items: stretch;
     }
 
     .bottom-row > .table-card {
-      grid-column: span 6;
-      min-width: 0;
-    }
-
-    .bottom-row > .alerts-card {
-      grid-column: span 2;
+      width: 100%;
       min-width: 0;
     }
 
@@ -544,9 +536,27 @@
     .badge-shipped { background: rgba(59,130,246,0.1); color: #1d4ed8; border: 1px solid rgba(59,130,246,0.25); }
     .badge-delivered { background: rgba(16,185,129,0.12); color: #047857; border: 1px solid rgba(16,185,129,0.3); }
 
-    .col-note { width: 48px; text-align: center; }
+    .col-note { white-space: normal; min-width: 180px; text-align: left; vertical-align: top; }
     .note-flag { color: #f59e0b; font-size: 14px; cursor: help; }
+    .note-inline {
+      display: inline-block;
+      color: #d97706;
+      font-size: 12px;
+      line-height: 1.4;
+      max-width: 260px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      vertical-align: top;
+    }
+    .note-inline:hover { white-space: normal; overflow: visible; }
     .muted-dot { color: var(--border); }
+    /* 有预警(注意事项非空)的行高亮 */
+    tbody tr.has-alert { background: rgba(245,158,11,0.06); }
+    tbody tr.has-alert:hover { background: rgba(245,158,11,0.12); }
+    tbody tr.has-alert td:first-child { box-shadow: inset 3px 0 0 #f59e0b; }
+    /* 表头预警计数徽标(无预警时变绿) */
+    .alert-count-badge.ok { background: rgba(16,185,129,0.12); color: #047857; border-color: rgba(16,185,129,0.3); }
 
     .mono { font-family: 'Space Grotesk', monospace; font-size: 12px; }
 
@@ -1005,9 +1015,9 @@
     </div>
   </div>
 
-  <!-- ===== SECTION: 明细与预警 ===== -->
-  <div class="section-label">明细与预警 · Details</div>
-  <!-- ===== BOTTOM ROW ===== -->
+  <!-- ===== SECTION: 物流明细 ===== -->
+  <div class="section-label">物流明细表 · Details</div>
+  <!-- ===== BOTTOM ROW (预警已合并进明细表) ===== -->
   <div class="bottom-row">
     <!-- Table -->
     <div class="table-card">
@@ -1016,6 +1026,7 @@
           <div class="icon">📋</div>
           物流明细表
         </div>
+        <span class="alert-count-badge" id="alertCount">0 条预警</span>
       </div>
       <div class="filter-row">
         <select class="filter-select" id="statusFilter" onchange="renderTable()">
@@ -1036,7 +1047,7 @@
               <th>合同号</th>
               <th>提单号</th>
               <th>状态</th>
-              <th class="col-note">提醒</th>
+              <th class="col-note">注意事项 / 预警</th>
               <th>承运商</th>
               <th>启运港</th>
               <th>目的港</th>
@@ -1053,16 +1064,6 @@
         <span id="tableInfo">显示 0 条记录</span>
         <span id="tablePageInfo"></span>
       </div>
-    </div>
-
-    <!-- Alerts -->
-    <div class="alerts-card">
-      <div class="alerts-title">
-        <div class="icon">⚠️</div>
-        预警提醒
-        <span class="alert-count-badge" id="alertCount">0</span>
-      </div>
-      <div class="alerts-list" id="alertsList"></div>
     </div>
   </div>
 </div>
@@ -1485,11 +1486,11 @@ function renderTable() {
   }
 
   tbody.innerHTML = filtered.map((d, i) => `
-    <tr onclick="openModal('${d.id}')" style="animation-delay:${i * 0.03}s">
+    <tr class="${d.notes ? 'has-alert' : ''}" onclick="openModal('${d.id}')" style="animation-delay:${i * 0.03}s">
       <td><span class="mono">${fmt(d.contractNo)}</span></td>
       <td><span class="mono" style="color:var(--secondary-accent)">${fmt(d.blNo)}</span></td>
       <td>${getBadgeHtml(d.status)}</td>
-      <td class="col-note">${d.notes ? `<span class="note-flag" title="${esc(d.notes)}">⚠</span>` : '<span class="muted-dot">·</span>'}</td>
+      <td class="col-note">${d.notes ? `<span class="note-inline" title="${esc(d.notes)}">⚠ ${esc(d.notes)}</span>` : '<span class="muted-dot">·</span>'}</td>
       <td>${fmt(d.carrier)}</td>
       <td>${fmt(d.shipper)}</td>
       <td>${fmt(d.destination)}</td>
@@ -1510,55 +1511,20 @@ function renderTable() {
     </tr>`;
 
   document.getElementById('tableInfo').textContent = `显示 ${filtered.length} 条记录，合计 ${fmtMoney(totalSum)}`;
-}
 
-// ===== ALERTS =====
-// 预警完全由「注意事项」列驱动：某行的注意事项非空即生成一条预警卡片
-function generateAlerts() {
-  const alerts = [];
-
-  activeData.forEach(d => {
-    const note = (d.notes == null ? '' : String(d.notes)).trim();
-    if (note) {
-      alerts.push({
-        type: 'note',
-        tag: '注意',
-        id: d.id,
-        desc: note,                                          // 注意事项原文
-        route: `${fmt(d.shipper)} → ${fmt(d.destination)}`,
-        time: '',
-      });
-    }
-  });
-
-  return alerts;
-}
-
-function renderAlerts() {
-  const alerts = generateAlerts();
-  document.getElementById('alertCount').textContent = alerts.length;
-
-  if (alerts.length === 0) {
-    document.getElementById('alertsList').innerHTML = `
-      <div class="empty-state">
-        <div class="icon">✅</div>
-        <p>暂无预警</p>
-      </div>`;
-    return;
+  // 预警计数（合并进明细表后：统计"注意事项"非空的行）
+  const alertCount = filtered.filter(d => d.notes).length;
+  const badge = document.getElementById('alertCount');
+  if (alertCount > 0) {
+    badge.textContent = `⚠ ${alertCount} 条预警`;
+    badge.classList.remove('ok');
+  } else {
+    badge.textContent = '✅ 无预警';
+    badge.classList.add('ok');
   }
-
-  document.getElementById('alertsList').innerHTML = alerts.map((a, i) => `
-    <div class="alert-card ${a.type}" onclick="openModal('${esc(a.id)}')" style="animation-delay:${i * 0.05}s">
-      <div class="alert-card-header">
-        <span class="alert-tag ${a.type}">${esc(a.tag)}</span>
-        <span class="alert-time">${esc(a.id)}</span>
-      </div>
-      <div class="alert-id">${esc(a.route.split(' → ')[0])}</div>
-      <div class="alert-desc">${esc(a.desc)}</div>
-      <div class="alert-route">${esc(a.route)}</div>
-    </div>
-  `).join('');
 }
+
+// ===== ALERTS (已合并进物流明细表：注意事项非空的行在表格内高亮并内联展示) =====
 
 // ===== MODAL =====
 const FIELD_GROUPS = [
@@ -1712,7 +1678,6 @@ async function loadAndRender() {
     updateStats();
     renderCharts();
     renderTable();
-    renderAlerts();
   }
   const el = document.getElementById('lastUpdated');
   const syncStr = formatSyncTime(lastFetchTime);
