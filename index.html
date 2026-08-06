@@ -1128,7 +1128,7 @@ async function fetchDataJSON() {
   // 未输入密码：不请求、不渲染任何数据
   if (!sessionPassword) return false;
   try {
-    const resp = await fetch(DATA_URL, {cache: 'no-store'});
+    const resp = await fetch(DATA_URL + '?t=' + Date.now(), {cache: 'no-store'});
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const raw = await resp.json();
     let json;
