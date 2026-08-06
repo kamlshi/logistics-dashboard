@@ -880,9 +880,55 @@
 
     .empty-state .icon { font-size: 32px; margin-bottom: 12px; opacity: 0.5; }
     .empty-state p { font-size: 13px; }
+  /* ===== 密码门 ===== */
+  .gate {
+    position: fixed; inset: 0; z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #0f1e3d 0%, #1a3a6b 50%, #0f1e3d 100%);
+    padding: 20px;
+  }
+  .gate-card {
+    width: 380px; max-width: 92vw; background: #fff; border-radius: 18px;
+    padding: 38px 34px; text-align: center; box-shadow: 0 24px 70px rgba(0,0,0,.4);
+  }
+  .gate-logo { height: 56px; margin-bottom: 16px; }
+  .gate-title { font-family: 'Space Grotesk', sans-serif; font-size: 21px; font-weight: 700; color: #0f1e3d; letter-spacing: -.4px; }
+  .gate-sub { font-size: 12px; color: #64748b; margin-top: 5px; letter-spacing: .5px; }
+  .gate-divider { height: 1px; background: #eef2f7; margin: 22px 0; }
+  .gate-hint { font-size: 13px; color: #475569; margin-bottom: 16px; }
+  .gate-input-row { display: flex; gap: 8px; }
+  .gate-input {
+    flex: 1; padding: 11px 14px; border: 1px solid #d8e0ec; border-radius: 10px;
+    font-size: 14px; outline: none; transition: border-color .15s, box-shadow .15s;
+  }
+  .gate-input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.15); }
+  .gate-btn {
+    padding: 11px 22px; border: none; border-radius: 10px; background: #2563eb;
+    color: #fff; font-weight: 600; font-size: 14px; cursor: pointer; transition: background .15s;
+  }
+  .gate-btn:hover { background: #1d4ed8; }
+  .gate-btn:disabled { opacity: .6; cursor: default; }
+  .gate-error { color: #dc2626; font-size: 12px; margin-top: 12px; min-height: 14px; }
+
   </style>
 </head>
 <body>
+
+<!-- ===== 密码门 ===== -->
+<div id="passwordGate" class="gate">
+  <div class="gate-card">
+    <img src="logo.jpg" alt="锦源晟 Jayson" class="gate-logo">
+    <div class="gate-title">绿动业务物流进度</div>
+    <div class="gate-sub">锦源晟绿动实时供应链追踪</div>
+    <div class="gate-divider"></div>
+    <div class="gate-hint">请输入访问密码以查看实时供应链进度</div>
+    <div class="gate-input-row">
+      <input type="password" id="gatePassword" class="gate-input" placeholder="访问密码" autocomplete="off">
+      <button id="gateSubmit" class="gate-btn">进入</button>
+    </div>
+    <div id="gateError" class="gate-error"></div>
+  </div>
+</div>
 
 <!-- ===== HEADER ===== -->
 <div class="container">
@@ -1039,7 +1085,7 @@
 'use strict';
 
 // ===== DATA ===== (手动同步 @ 2026-07-24T11:55:10.364516)
-const EMBEDDED_DATA = [{"id": "LOG-001", "status": "In Transit", "contractNo": "1", "blNo": "1", "shipper": "1", "destination": "1", "transitPort": "1", "carrier": "1", "shipCompany": "1", "type": "1", "transportMode": "1", "eta": "2", "etaDest": "3", "containerCount": 4, "containerType": "5", "packages": 0, "netWeight": 0, "grossWeight": 0, "goodsName": "", "quantity": 0, "unit": "", "unitPrice": 0, "totalPrice": 125000, "customerName": "", "reportNo": "", "vessel": "", "estRelease": "", "actualRelease": "", "paymentDate": "", "releaseTime": ""}, {"id": "LOG-002", "status": "Shipped", "contractNo": "2", "blNo": "2", "shipper": "2", "destination": "2", "transitPort": "2", "carrier": "2", "shipCompany": "2", "type": "2", "transportMode": "2", "eta": "2", "etaDest": "2", "containerCount": 2, "containerType": "2", "packages": 0, "netWeight": 0, "grossWeight": 0, "goodsName": "", "quantity": 0, "unit": "", "unitPrice": 0, "totalPrice": 89600, "customerName": "", "reportNo": "", "vessel": "", "estRelease": "", "actualRelease": "", "paymentDate": "", "releaseTime": ""}, {"id": "LOG-003", "status": "Delivered", "contractNo": "1", "blNo": "1", "shipper": "1", "destination": "1", "transitPort": "1", "carrier": "1", "shipCompany": "1", "type": "1", "transportMode": "1", "eta": "2", "etaDest": "3", "containerCount": 4, "containerType": "5", "packages": 0, "netWeight": 0, "grossWeight": 0, "goodsName": "", "quantity": 0, "unit": "", "unitPrice": 0, "totalPrice": 67300, "customerName": "", "reportNo": "", "vessel": "", "estRelease": "", "actualRelease": "", "paymentDate": "", "releaseTime": ""}, {"id": "LOG-004", "status": "Shipped", "contractNo": "2", "blNo": "2", "shipper": "2", "destination": "2", "transitPort": "2", "carrier": "2", "shipCompany": "2", "type": "2", "transportMode": "2", "eta": "2", "etaDest": "2", "containerCount": 2, "containerType": "2", "packages": 0, "netWeight": 0, "grossWeight": 0, "goodsName": "", "quantity": 0, "unit": "", "unitPrice": 0, "totalPrice": 158400, "customerName": "", "reportNo": "", "vessel": "", "estRelease": "", "actualRelease": "", "paymentDate": "", "releaseTime": ""}, {"id": "LOG-005", "status": "In Transit", "contractNo": "1", "blNo": "1", "shipper": "1", "destination": "1", "transitPort": "1", "carrier": "1", "shipCompany": "1", "type": "1", "transportMode": "1", "eta": "2", "etaDest": "3", "containerCount": 4, "containerType": "5", "packages": 0, "netWeight": 0, "grossWeight": 0, "goodsName": "", "quantity": 0, "unit": "", "unitPrice": 0, "totalPrice": 210000, "customerName": "", "reportNo": "", "vessel": "", "estRelease": "", "actualRelease": "", "paymentDate": "", "releaseTime": ""}, {"id": "LOG-006", "status": "Shipped", "contractNo": "2", "blNo": "2", "shipper": "2", "destination": "2", "transitPort": "2", "carrier": "2", "shipCompany": "2", "type": "2", "transportMode": "2", "eta": "2", "etaDest": "2", "containerCount": 2, "containerType": "2", "packages": 0, "netWeight": 0, "grossWeight": 0, "goodsName": "", "quantity": 0, "unit": "", "unitPrice": 0, "totalPrice": 45000, "customerName": "", "reportNo": "", "vessel": "", "estRelease": "", "actualRelease": "", "paymentDate": "", "releaseTime": ""}];
+const EMBEDDED_DATA = [];
 let logisticsData = EMBEDDED_DATA;
 let activeData = [...logisticsData];
 let lastFetchTime = '2026-07-24T11:55:10.364516';
@@ -1049,23 +1095,90 @@ let lastFetchTime = '2026-07-24T11:55:10.364516';
 // 数据源：GitHub Pages 上的 data.json（由本机同步服务/定时任务 从腾讯文档实时同步）
 const DATA_URL = 'https://kamlshi.github.io/logistics-dashboard/data.json';
 
+// 访问密码（仅存于内存，刷新页面后失效；不落盘、不进源码）
+let sessionPassword = '';
+
+function b64ToBytes(b64) {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+// 用密码解密 data.json（PBKDF2-SHA256 + AES-256-GCM，与 sync.py 互通）
+async function decryptData(encObj, password) {
+  const salt = b64ToBytes(encObj.salt);
+  const iv = b64ToBytes(encObj.iv);
+  const data = b64ToBytes(encObj.data);
+  const enc = new TextEncoder().encode(password);
+  const keyMat = await crypto.subtle.importKey('raw', enc, 'PBKDF2', false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: encObj.iter || 150000, hash: 'SHA-256' },
+    keyMat, { name: 'AES-GCM', length: 256 }, false, ['decrypt']
+  );
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data);
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+
 async function fetchDataJSON() {
+  // 未输入密码：不请求、不渲染任何数据
+  if (!sessionPassword) return false;
   try {
     const resp = await fetch(DATA_URL, {cache: 'no-store'});
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const json = await resp.json();
+    const raw = await resp.json();
+    let json;
+    if (raw && raw.enc) {
+      json = await decryptData(raw, sessionPassword); // 密码错误会在此抛异常
+    } else {
+      json = raw; // 兼容未加密的旧数据
+    }
     logisticsData = json.rows || json.orders || [];
     lastFetchTime = json.lastUpdated || new Date().toISOString();
     activeData = [...logisticsData];
     return true;
   } catch (e) {
-    console.warn('[Dashboard] data.json 获取失败，使用内嵌兜底:', e.message);
-    // 兜底：使用内嵌数据（离线/首次加载）
-    if (logisticsData.length > 0) {
-      activeData = [...logisticsData];
-      return true;
-    }
+    console.warn('[Dashboard] fetch/decrypt 失败:', e.message);
     return false;
+  }
+}
+
+// ===== 密码门逻辑 =====
+function showGateError(msg) {
+  const el = document.getElementById('gateError');
+  if (el) el.textContent = msg || '';
+}
+function hideGate() {
+  const g = document.getElementById('passwordGate');
+  if (g) g.style.display = 'none';
+}
+async function unlock(pw) {
+  sessionPassword = pw;
+  showGateError('');
+  const btn = document.getElementById('gateSubmit');
+  if (btn) { btn.disabled = true; btn.textContent = '校验中...'; }
+  const ok = await loadAndRender();
+  if (ok) {
+    hideGate();
+    startAutoPoll(30000);
+  } else {
+    sessionPassword = '';
+    showGateError('密码错误，请重试');
+    if (btn) { btn.disabled = false; btn.textContent = '进入'; }
+  }
+}
+function setupPasswordGate() {
+  const input = document.getElementById('gatePassword');
+  const btn = document.getElementById('gateSubmit');
+  const submit = () => {
+    const pw = (input.value || '').trim();
+    if (!pw) return;
+    unlock(pw);
+  };
+  if (btn) btn.addEventListener('click', submit);
+  if (input) {
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+    input.focus();
   }
 }
 
@@ -1617,11 +1730,8 @@ function startAutoPoll(intervalMs) {
 // ===== INIT =====
 async function init() {
   initDate();
-  // 页面加载即加载最新数据（真正的同步由手动「刷新」或本机定时任务触发）
-  await loadAndRender();
-
-  // 每 30 秒自动刷新数据
-  startAutoPoll(30000);
+  // 先显示密码门；输入正确密码后才拉取并解密数据（未输密码不渲染任何内容）
+  setupPasswordGate();
 
   // Redraw charts on resize
   window.addEventListener('resize', () => {
