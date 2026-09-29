@@ -1077,9 +1077,9 @@
       <div class="filter-row">
         <select class="filter-select" id="statusFilter" onchange="renderTable()">
           <option value="">全部状态</option>
-          <option value="In Transit">In Transit 运输中</option>
-          <option value="Shipped">Shipped 已装船</option>
-          <option value="Delivered">Delivered 已交付</option>
+          <option value="In Transit">已到港 Arrived</option>
+          <option value="Shipped">海运中 Shipped</option>
+          <option value="Delivered">已交付 Delivered</option>
         </select>
         <select class="filter-select" id="carrierFilter" onchange="renderTable()">
           <option value="">全部承运商</option>
@@ -1517,14 +1517,24 @@ function renderCharts() {
 }
 
 // ===== TABLE =====
-function getBadgeHtml(status) {
+// 状态显示统一为中文+英文，与核心概览/环形图图例保持一致
+function statusLabel(s) {
   const map = {
-    'In Transit': { cls: 'badge-transit', label: 'In Transit' },
-    'Shipped': { cls: 'badge-shipped', label: 'Shipped' },
-    'Delivered': { cls: 'badge-delivered', label: 'Delivered' },
+    'In Transit': '已到港 Arrived',
+    'Shipped': '海运中 Shipped',
+    'Delivered': '已交付 Delivered',
   };
-  const b = map[status] || { cls: 'badge-transit', label: status };
-  return `<span class="badge ${b.cls}">${b.label}</span>`;
+  return map[s] || s;
+}
+
+function getBadgeHtml(status) {
+  const clsMap = {
+    'In Transit': 'badge-transit',
+    'Shipped': 'badge-shipped',
+    'Delivered': 'badge-delivered',
+  };
+  const cls = clsMap[status] || 'badge-transit';
+  return `<span class="badge ${cls}">${esc(statusLabel(status))}</span>`;
 }
 
 function renderTable() {
@@ -1604,6 +1614,7 @@ const NUM_KEYS = new Set(['containerCount', 'packages', 'quantity', 'netWeight',
 
 function detailDisplay(key, val) {
   if (val === '' || val == null) return '';
+  if (key === 'status') return esc(statusLabel(val));
   if (MONEY_KEYS.has(key)) return fmtMoney(val);
   if (NUM_KEYS.has(key)) return fmtNum(val);
   return fmt(val);
@@ -1629,7 +1640,7 @@ function buildDetailHtml(d) {
   if (!cols) {
     // 兼容旧数据：从已知字段构造最小明细
     cols = [
-      {label:'物流状态',key:'status',value:d.status},
+      {label:'物流状态',key:'status',value:statusLabel(d.status)},
       {label:'合同号',key:'contractNo',value:d.contractNo},
       {label:'提单号 (BL#)',key:'blNo',value:d.blNo},
       {label:'启运港',key:'shipper',value:d.shipper},
