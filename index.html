@@ -1022,16 +1022,16 @@
     </div>
     <div class="stat-card orange">
       <div class="stat-icon">🚛</div>
-      <div class="stat-label">In Transit</div>
+      <div class="stat-label">Arrived</div>
       <div class="stat-value" id="statTransit">0</div>
-      <div class="stat-sub">运输中</div>
+      <div class="stat-sub">已到港</div>
       <div class="stat-amount" id="statTransitAmount">合计 ¥0</div>
     </div>
     <div class="stat-card lightblue">
       <div class="stat-icon">🚢</div>
       <div class="stat-label">Shipped</div>
       <div class="stat-value" id="statShipped">0</div>
-      <div class="stat-sub">已装船</div>
+      <div class="stat-sub">海运中</div>
       <div class="stat-amount" id="statShippedAmount">合计 ¥0</div>
     </div>
     <div class="stat-card deepblue">
@@ -1440,7 +1440,7 @@ function renderCharts() {
   statusChartInstance = new Chart(sc, {
     type: 'doughnut',
     data: {
-      labels: ['运输中 In Transit', '已装船 Shipped', '已交付 Delivered'],
+      labels: ['已到港 Arrived', '海运中 Shipped', '已交付 Delivered'],
       datasets: [{
         data: [transit, shipped, delivered],
         backgroundColor: [CHART_COLORS.transit, CHART_COLORS.shipped, CHART_COLORS.delivered],
