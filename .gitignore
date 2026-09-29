@@ -7,3 +7,10 @@ tmp_cookies/
 pw_profile/
 __pycache__/
 *.pyc
+
+# 同步产物（本地调试副本 / 连接器缓存 / 结果缓存，禁止入库）
+data.json.plain
+.tdoc_proxy_cfg.json
+.sync_result.json
+sync.log
+sync_server.log

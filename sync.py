@@ -17,6 +17,8 @@
 import os, sys, json, time, shutil, sqlite3, base64, ctypes
 from ctypes import wintypes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.primitives import hashes
 import requests
 from playwright.sync_api import sync_playwright
 
@@ -85,7 +87,7 @@ HEADER_MAP = [
     ("备注", "notes"),
 ]
 STATUS_EN = {
-    "运输中": "InTransit", "在途": "InTransit", "已装船": "Shipped", "已发船": "Shipped",
+    "运输中": "In Transit", "在途": "In Transit", "已装船": "Shipped", "已发船": "Shipped",
     "已交付": "Delivered", "已完成": "Delivered", "待发货": "Pending", "已收货": "Received",
     "延期": "Delayed", "延误": "Delayed",
 }
@@ -234,6 +236,28 @@ def build_rows(grid):
         rows.append(d)
     return header, rows
 
+# ---------- 加密（与前端 index.html decryptData 互通）----------
+def encrypt_data(plain, password):
+    """用 PBKDF2-SHA256(150000) + AES-256-GCM 加密明文 dict，返回 data.json 信封。
+
+    前端使用 Web Crypto 以相同参数解密，密码即看板访问密码 DASHBOARD_PASSWORD（默认 Eco）。
+    """
+    salt = os.urandom(16)
+    iterations = 150000
+    kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=iterations)
+    key = kdf.derive(password.encode("utf-8"))
+    iv = os.urandom(12)
+    ct = AESGCM(key).encrypt(iv, json.dumps(plain, ensure_ascii=False).encode("utf-8"), None)
+    return {
+        "v": 1,
+        "alg": "PBKDF2-SHA256/AES-256-GCM",
+        "iter": iterations,
+        "salt": base64.b64encode(salt).decode("ascii"),
+        "iv": base64.b64encode(iv).decode("ascii"),
+        "data": base64.b64encode(ct).decode("ascii"),
+    }
+
+
 # ---------- 5. 推送 GitHub ----------
 def push_github(data_str):
     if not GITHUB_PAT:
@@ -304,13 +328,21 @@ def _real_main():
         "columns": header,
         "rows": rows,
     }
-    data_str = json.dumps(data, ensure_ascii=False, indent=2)
+    # 本地保留明文副本（便于排查，不推送）
+    plain_str = json.dumps(data, ensure_ascii=False, indent=2)
+    with open(OUT_JSON + ".plain", "w", encoding="utf-8") as f:
+        f.write(plain_str)
+    # 加密后推送（密码 Eco，与前端 decryptData 互通；前端同时兼容明文）
+    password = os.environ.get("DASHBOARD_PASSWORD", "Eco")
+    envelope = encrypt_data(data, password)
+    enc_str = json.dumps(envelope, ensure_ascii=False)
     with open(OUT_JSON, "w", encoding="utf-8") as f:
-        f.write(data_str)
-    print(f"=== ✅ 已生成 {OUT_JSON} ({len(rows)} 行) ===")
+        f.write(enc_str)
+    print(f"=== ✅ 已生成 {OUT_JSON} ({len(rows)} 行，已加密) ===")
     if rows:
         print("示例首行:", json.dumps(rows[0], ensure_ascii=False)[:400])
-    push_github(data_str)
+    push_github(enc_str)
+    return data
 
 def run_sync():
     """执行一次完整同步，返回结果字典（供本机同步服务 / 定时任务调用）。
@@ -318,11 +350,7 @@ def run_sync():
     不自带日志重定向；调用方（main / sync_server）自行负责日志与异常展示。
     """
     try:
-        _real_main()
-        try:
-            data = json.load(open(OUT_JSON, encoding="utf-8"))
-        except Exception:
-            data = {}
+        data = _real_main()
         return {
             "ok": True,
             "lastUpdated": data.get("lastUpdated"),
