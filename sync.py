@@ -61,6 +61,9 @@ HEADER_MAP = [
     ("电放", "type"),
     ("运输方式", "transportMode"),
     ("ETA", "eta"),          # ETA（中转港）/ ETA（目的港）都先映射到 eta/etaDest，下面再细分
+    ("柜号", "containerNo"),  # 集装箱号 / 箱号
+    ("箱号", "containerNo"),
+    ("集装箱号", "containerNo"),
     ("柜量", "containerCount"),
     ("柜型", "containerType"),
     ("件数", "packages"),
@@ -211,7 +214,7 @@ def build_rows(grid):
             continue  # 跳过空行
         d = {k: "" for k in
              ["id","status","contractNo","blNo","shipper","destination","transitPort","carrier",
-              "shipCompany","type","transportMode","eta","etaDest","containerCount","containerType",
+              "shipCompany","type","transportMode","eta","etaDest","containerNo","containerCount","containerType",
               "packages","netWeight","grossWeight","goodsName","quantity","unit","unitPrice","totalPrice",
               "customerName","reportNo","vessel","estRelease","actualRelease","paymentDate","releaseTime","notes"]}
         for i, field in col2field.items():

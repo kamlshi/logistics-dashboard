@@ -1053,6 +1053,7 @@
               <th>启运港</th>
               <th>目的港</th>
               <th>ETA</th>
+              <th>柜号</th>
               <th>柜型</th>
               <th>柜量</th>
               <th>总金额</th>
@@ -1481,7 +1482,7 @@ function renderTable() {
 
   const tbody = document.getElementById('tableBody');
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="11"><div class="empty-state"><div class="icon">📭</div><p>暂无匹配记录</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="12"><div class="empty-state"><div class="icon">📭</div><p>暂无匹配记录</p></div></td></tr>`;
     document.getElementById('tableInfo').textContent = '显示 0 条记录';
     return;
   }
@@ -1504,6 +1505,7 @@ function renderTable() {
       <td>${fmt(d.shipper)}</td>
       <td>${fmt(d.destination)}</td>
       <td><span class="mono">${fmt(d.eta)}</span></td>
+      <td><span class="mono">${fmt(d.containerNo)}</span></td>
       <td>${fmt(d.containerType)}</td>
       <td><span class="mono" style="color:var(--secondary)">${d.containerCount}</span></td>
       <td><span class="mono" style="color:var(--text);font-weight:500">${fmtMoney(d.totalPrice)}</span></td>
@@ -1515,7 +1517,7 @@ function renderTable() {
   const totalSum = sumAmount(filtered);
   tbody.innerHTML += `
     <tr style="background:var(--card-bg2);font-weight:700;cursor:default;">
-      <td colspan="9" style="text-align:right;color:var(--text-muted);font-size:13px;letter-spacing:0.5px;">合计</td>
+      <td colspan="10" style="text-align:right;color:var(--text-muted);font-size:13px;letter-spacing:0.5px;">合计</td>
       <td style="color:var(--text-muted);font-size:13px;">${filtered.length} 条</td>
       <td><span class="mono" style="color:var(--primary-accent);font-weight:600;font-size:14px;">${fmtMoney(totalSum)}</span></td>
     </tr>`;
@@ -1568,6 +1570,7 @@ const FIELD_GROUPS = [
       { key: 'unit', label: '单位 Unit' },
       { key: 'netWeight', label: '净重 Net Weight (kg)' },
       { key: 'grossWeight', label: '毛重 Gross Weight (kg)' },
+      { key: 'containerNo', label: '柜号 Container No' },
       { key: 'containerType', label: '柜型 Container Type' },
       { key: 'containerCount', label: '柜量 Container Count' },
     ]
