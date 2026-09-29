@@ -848,6 +848,56 @@
       color: var(--primary);
     }
 
+    .detail-empty { color: var(--text-muted); }
+
+    /* 明细工具条 */
+    .detail-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+      padding: 10px 12px;
+      background: var(--card-bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    .detail-copy-btn {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .detail-copy-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .detail-toggle {
+      font-size: 12px;
+      color: var(--text-muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .detail-toggle input { cursor: pointer; }
+    .detail-count { font-size: 12px; color: var(--text-muted); margin-left: auto; }
+    .group-count {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-muted);
+      background: var(--card-bg2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 1px 8px;
+      margin-left: 8px;
+    }
+    .detail-item.is-empty { display: none; }
+
     /* ===== ANIMATIONS ===== */
     @keyframes slideDown {
       from { opacity: 0; transform: translateY(-20px); }
@@ -1551,6 +1601,20 @@ function detailDisplay(key, val) {
   return fmt(val);
 }
 
+function isEmptyVal(v) {
+  return v === null || v === undefined || String(v).trim() === '';
+}
+
+// 按腾讯文档真实表头语义分组（仅视觉聚拢，不改变列顺序、不丢弃任何列）
+function detailGroupOf(label) {
+  const L = label || '';
+  if (/单价|总价|币值|放行|水单|放单/.test(L)) return '结算与放行';
+  if (/启运港|目的港|中转港|ETD|ETA|运输方式|承运|船公司|轨迹|船名|电放/.test(L)) return '港口与船期';
+  if (/柜量|柜型|件数|净重|毛重|货名|数量|单位|柜号/.test(L)) return '集装箱与货物';
+  if (/状态|合同|提单|报告编号|注意事项/.test(L)) return '订单与单证';
+  return '其他';
+}
+
 function buildDetailHtml(d) {
   // 优先使用同步时保存的全部源表列（与腾讯文档表头 1:1 对应）
   let cols = (d.allCols && d.allCols.length) ? d.allCols : null;
@@ -1572,31 +1636,89 @@ function buildDetailHtml(d) {
       {label:'注意事项',key:'notes',value:d.notes},
     ];
   }
-  let html = '<div class="modal-section-title">物流明细 · 按腾讯文档表头（共 ' + cols.length + ' 项）</div><div class="detail-grid">';
+  const GROUP_ORDER = ['订单与单证', '港口与船期', '集装箱与货物', '结算与放行', '其他'];
+  const groups = {};
   cols.forEach(c => {
-    const key = c.key || '';
-    const isMono = MONO_KEYS.has(key);
-    html += '<div class="detail-item">'
-      + '<div class="detail-label">' + esc(c.label) + '</div>'
-      + '<div class="detail-value' + (isMono ? ' mono' : '') + '">' + detailDisplay(key, c.value) + '</div>'
-      + '</div>';
+    const g = detailGroupOf(c.label);
+    (groups[g] = groups[g] || []).push(c);
   });
-  html += '</div>';
+
+  let html = '<div class="detail-toolbar">'
+    + '<button class="detail-copy-btn" onclick="copyRowJson()">📋 复制行 JSON</button>'
+    + '<label class="detail-toggle"><input type="checkbox" id="showEmptyCols" onchange="toggleEmptyCols(this.checked)"> 显示空字段</label>'
+    + '<span class="detail-count">共 ' + cols.length + ' 项 · 与腾讯文档表头对应</span>'
+    + '</div>';
+
+  GROUP_ORDER.forEach(g => {
+    const items = groups[g];
+    if (!items || !items.length) return;
+    const nonEmpty = items.filter(c => !isEmptyVal(c.value)).length;
+    html += '<div class="modal-section-title">' + esc(g) + '<span class="group-count">' + nonEmpty + '/' + items.length + ' 有值</span></div>';
+    html += '<div class="detail-grid">';
+    items.forEach(c => {
+      const key = c.key || '';
+      const isMono = MONO_KEYS.has(key);
+      const emptyCls = isEmptyVal(c.value) ? ' is-empty' : '';
+      const valHtml = isEmptyVal(c.value)
+        ? '<span class="detail-empty">—</span>'
+        : detailDisplay(key, c.value);
+      html += '<div class="detail-item' + emptyCls + '">'
+        + '<div class="detail-label">' + esc(c.label) + '</div>'
+        + '<div class="detail-value' + (isMono ? ' mono' : '') + '">' + valHtml + '</div>'
+        + '</div>';
+    });
+    html += '</div>';
+  });
   return html;
 }
+
+let currentModalRow = null;
 
 function openModal(id) {
   const d = activeData.find(x => x.id === id);
   if (!d) return;
+  currentModalRow = d;
 
   document.getElementById('modalId').textContent = d.id;
   document.getElementById('modalStatusBadge').innerHTML = getBadgeHtml(d.status);
 
-  let html = buildDetailHtml(d);
+  document.getElementById('modalBody').innerHTML = buildDetailHtml(d);
 
-  document.getElementById('modalBody').innerHTML = html;
   document.getElementById('modalOverlay').classList.add('active');
   document.body.style.overflow = 'hidden';
+}
+
+function copyRowJson() {
+  if (!currentModalRow) return;
+  const txt = JSON.stringify(currentModalRow, null, 2);
+  const done = () => showToast('已复制该行 JSON', 'success');
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txt).then(done).catch(() => fallbackCopy(txt, done));
+  } else {
+    fallbackCopy(txt, done);
+  }
+}
+
+function fallbackCopy(txt, cb) {
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = txt;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+    cb && cb();
+  } catch (e) {
+    showToast('复制失败，请手动复制', 'error');
+  }
+}
+
+function toggleEmptyCols(show) {
+  document.querySelectorAll('.detail-item.is-empty').forEach(el => {
+    el.style.display = show ? '' : 'none';
+  });
 }
 
 function closeModal() {
