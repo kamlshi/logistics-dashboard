@@ -1700,7 +1700,8 @@ async function loadAndRender() {
   return ok;
 }
 
-// 手动点「刷新」：先触发本机同步（即时拉文档），再重新加载渲染
+// 手动点「刷新」：优先触发本机中继同步（即时拉文档）；
+// 若本机同步服务未运行（线上页面常态），则重新加载线上已发布的最新 data.json
 async function manualRefresh() {
   const btn = document.querySelector('.refresh-btn');
   const dot = document.querySelector('.last-updated .dot');
@@ -1710,11 +1711,18 @@ async function manualRefresh() {
   if (dot) dot.style.background = '#f59e0b';
 
   const sync = await triggerSync();
-  if (sync.ok) showToast(`✅ 已从文档同步最新数据（${sync.rowCount ?? 0} 行）`, 'success');
-  else if (sync.offline) showToast('⚠️ 本地同步服务未启动，已加载最近已同步数据', 'warn');
-  else showToast('❌ 同步失败：' + (sync.message || ''), 'error');
-
-  await loadAndRender();
+  if (sync.ok) {
+    showToast(`✅ 已从腾讯文档同步最新数据（${sync.rowCount ?? 0} 行）`, 'success');
+    await loadAndRender();
+  } else if (sync.offline) {
+    // 本机中继未运行：重新加载线上已发布的最新 data.json（不含腾讯文档未同步的新数据）
+    const ok = await loadAndRender();
+    showToast(ok ? '✅ 已加载线上最新数据（本机同步服务未运行，无法从腾讯文档拉取）'
+                 : '⚠️ 加载线上数据失败，请检查网络', ok ? 'success' : 'warn');
+  } else {
+    showToast('❌ 本地同步失败：' + (sync.message || ''), 'error');
+    await loadAndRender();
+  }
 
   btn.innerHTML = original;
   btn.disabled = false;
