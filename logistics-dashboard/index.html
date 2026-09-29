@@ -1,0 +1,1860 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>绿动业务物流进度</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-accent: #ea580c;
+      --secondary: #3b82f6;
+      --secondary-accent: #fdba74;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --card-bg2: #f1f5f9;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --border: rgba(203, 213, 225, 0.6);
+      --glow-blue: rgba(37, 99, 235, 0.1);
+      --glow-orange: rgba(234, 88, 12, 0.1);
+      --status-transit: #f59e0b;
+      --status-shipped: #3b82f6;
+      --status-delivered: #10b981;
+      --status-transit-ink: #b45309;
+      --status-shipped-ink: #1d4ed8;
+      --status-delivered-ink: #047857;
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+      --brand-grad: linear-gradient(120deg, #2563eb 0%, #3b82f6 100%);
+      --card-tint-blue: linear-gradient(160deg, rgba(37,99,235,0.06), #ffffff 58%);
+      --card-tint-orange: linear-gradient(160deg, rgba(245,158,11,0.07), #ffffff 58%);
+      --card-tint-lightblue: linear-gradient(160deg, rgba(59,130,246,0.06), #ffffff 58%);
+      --card-tint-deepblue: linear-gradient(160deg, rgba(16,185,129,0.07), #ffffff 58%);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* 白色主题下的卡片阴影 */
+    .card-shadow {
+      box-shadow: var(--shadow-md);
+      transition: box-shadow 0.2s ease;
+    }
+    .card-shadow:hover {
+      box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--secondary); border-radius: 3px; }
+
+    /* ===== BACKGROUND GRID ===== */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(148,163,184,0.15) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148,163,184,0.15) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ===== CONTAINER ===== */
+    .container {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 24px 24px 48px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ===== SECTION LABELS ===== */
+    .section-label {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin: 0 4px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-label::before {
+      content: '';
+      width: 18px;
+      height: 2px;
+      background: var(--primary);
+      border-radius: 2px;
+    }
+
+    /* ===== HEADER ===== */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 32px;
+      padding: 20px 28px;
+      background: var(--card-bg);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-md);
+      animation: slideDown 0.6s ease-out;
+      position: relative;
+    }
+
+    .header::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--primary), var(--secondary), var(--primary));
+      border-radius: 16px 16px 0 0;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .header-logo {
+      height: 64px;
+      width: auto;
+      object-fit: contain;
+      border-radius: 8px;
+    }
+
+    .header-icon {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      box-shadow: 0 4px 20px var(--glow-blue);
+    }
+
+    .header-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 23px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      line-height: 1.2;
+      color: #1e293b;
+      background: linear-gradient(120deg, #1e293b 0%, #2563eb 70%, #3b82f6 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .header-subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .last-updated {
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--card-bg2);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 999px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .last-updated .label { color: var(--text-muted); }
+    .last-updated .time { color: var(--text); font-family: 'Space Grotesk', sans-serif; font-weight: 600; }
+
+    .last-updated .dot {
+      width: 8px; height: 8px;
+      background: #4ade80;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    .refresh-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .refresh-btn:hover {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: white;
+    }
+
+    .current-date {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 14px;
+      color: var(--primary);
+      font-weight: 500;
+    }
+
+    /* ===== STAT CARDS ===== */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+      cursor: default;
+      transition: transform 0.3s, box-shadow 0.3s;
+      animation: fadeUp 0.6s ease-out both;
+      box-shadow: var(--shadow);
+    }
+
+    .stat-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .stat-card:nth-child(1) { animation-delay: 0.1s; }
+    .stat-card:nth-child(2) { animation-delay: 0.2s; }
+    .stat-card:nth-child(3) { animation-delay: 0.3s; }
+    .stat-card:nth-child(4) { animation-delay: 0.4s; }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      border-radius: 16px 16px 0 0;
+    }
+
+    .stat-card.blue::before { background: linear-gradient(90deg, var(--primary), var(--secondary)); }
+    .stat-card.orange::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+    .stat-card.lightblue::before { background: linear-gradient(90deg, var(--secondary), var(--secondary-accent)); }
+    .stat-card.deepblue::before { background: linear-gradient(90deg, #10b981, #34d399); }
+
+    .stat-icon {
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+      margin-bottom: 16px;
+    }
+
+    .stat-card.blue .stat-icon { background: rgba(37,99,235,0.1); }
+    .stat-card.orange .stat-icon { background: rgba(245,158,11,0.12); }
+    .stat-card.lightblue .stat-icon { background: rgba(59,130,246,0.1); }
+    .stat-card.deepblue .stat-icon { background: rgba(16,185,129,0.12); }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+    }
+
+    .stat-value {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 36px;
+      font-weight: 700;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .stat-card.blue .stat-value { color: var(--secondary); }
+    .stat-card.orange .stat-value { color: var(--status-transit-ink); }
+    .stat-card.lightblue .stat-value { color: var(--secondary); }
+    .stat-card.deepblue .stat-value { color: var(--status-delivered-ink); }
+
+    .stat-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .stat-amount {
+      margin-top: 12px;
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: baseline;
+      gap: 4px;
+      white-space: nowrap;
+      line-height: 1.6;
+    }
+
+    .stat-card.blue .stat-amount { color: var(--secondary); background: rgba(59,130,246,0.08); }
+    .stat-card.orange .stat-amount { color: var(--status-transit-ink); background: rgba(245,158,11,0.10); }
+    .stat-card.lightblue .stat-amount { color: var(--secondary); background: rgba(59,130,246,0.08); }
+    .stat-card.deepblue .stat-amount { color: var(--status-delivered-ink); background: rgba(16,185,129,0.10); }
+
+    .stat-card.blue { background: var(--card-tint-blue); }
+    .stat-card.orange { background: var(--card-tint-orange); }
+    .stat-card.lightblue { background: var(--card-tint-lightblue); }
+    .stat-card.deepblue { background: var(--card-tint-deepblue); }
+
+    /* ===== METRICS ROW (8等份: 统计卡片占4 + 图表各占2) ===== */
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+      align-items: stretch;
+    }
+
+    .metrics-row > .stat-card {
+      grid-column: span 1;
+    }
+
+    .metrics-row > .chart-card {
+      grid-column: span 2;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .metrics-row > .chart-card .chart-wrap {
+      flex: 1;
+      min-height: 0;
+    }
+
+    .chart-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      animation: fadeUp 0.6s ease-out 0.5s both;
+      box-shadow: var(--shadow);
+      min-width: 0;
+    }
+
+    .chart-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .chart-title .icon {
+      width: 28px; height: 28px;
+      background: rgba(37,99,235,0.1);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+
+    .chart-wrap {
+      position: relative;
+      height: 260px;
+    }
+
+    /* ===== BOTTOM ROW (预警已合并进明细表，单栏展示) ===== */
+    .bottom-row {
+      display: block;
+      animation: fadeUp 0.6s ease-out 0.7s both;
+    }
+
+    .bottom-row > .table-card {
+      width: 100%;
+      min-width: 0;
+    }
+
+    /* ===== TABLE CARD ===== */
+    .table-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .table-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .table-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 16px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .table-title .icon {
+      width: 28px; height: 28px;
+      background: rgba(37,99,235,0.1);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+
+    .filter-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .filter-select {
+      background: var(--card-bg2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      transition: border-color 0.2s;
+      outline: none;
+    }
+
+    .filter-select:hover, .filter-select:focus {
+      border-color: var(--primary);
+    }
+
+    .filter-select option { background: var(--card-bg); color: var(--text); }
+
+    .search-input {
+      background: var(--card-bg2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: 'Inter', sans-serif;
+      outline: none;
+      transition: border-color 0.2s;
+      width: 200px;
+    }
+
+    .search-input::placeholder { color: var(--text-muted); }
+    .search-input:focus { border-color: var(--primary); }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    thead th {
+      background: var(--card-bg2);
+      color: var(--text-muted);
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      padding: 12px 14px;
+      text-align: left;
+      white-space: nowrap;
+      border-bottom: 1px solid var(--border);
+    }
+
+    tbody tr {
+      cursor: pointer;
+      transition: background 0.15s;
+      border-bottom: 1px solid var(--border);
+    }
+
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(37,99,235,0.05); }
+    tbody tr:active { background: rgba(37,99,235,0.1); }
+
+    tbody td {
+      padding: 12px 14px;
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: 'Space Grotesk', sans-serif;
+      letter-spacing: 0.3px;
+    }
+
+    .badge-transit { background: rgba(245,158,11,0.12); color: #b45309; border: 1px solid rgba(245,158,11,0.3); }
+    .badge-shipped { background: rgba(59,130,246,0.1); color: #1d4ed8; border: 1px solid rgba(59,130,246,0.25); }
+    .badge-delivered { background: rgba(16,185,129,0.12); color: #047857; border: 1px solid rgba(16,185,129,0.3); }
+
+    .col-note { white-space: normal; min-width: 180px; text-align: left; vertical-align: top; }
+    .note-flag { color: #f59e0b; font-size: 14px; cursor: help; }
+    .note-inline {
+      display: inline-block;
+      color: var(--text-muted);
+      font-size: 12px;
+      line-height: 1.4;
+      max-width: 260px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      vertical-align: top;
+    }
+    .note-inline.alert { color: #d97706; font-weight: 600; }
+    .note-inline:hover { white-space: normal; overflow: visible; }
+    .muted-dot { color: var(--border); }
+    /* 有预警(注意事项非空)的行高亮 */
+    tbody tr.has-alert { background: rgba(245,158,11,0.06); }
+    tbody tr.has-alert:hover { background: rgba(245,158,11,0.12); }
+    tbody tr.has-alert td:first-child { box-shadow: inset 3px 0 0 #f59e0b; }
+    /* 表头预警计数徽标(无预警时变绿) */
+    .alert-count-badge.ok { background: rgba(16,185,129,0.12); color: #047857; border-color: rgba(16,185,129,0.3); }
+
+    .mono { font-family: 'Space Grotesk', monospace; font-size: 12px; }
+
+    .table-footer {
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border);
+      background: var(--card-bg2);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* ===== ALERTS SIDEBAR ===== */
+    .alerts-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: var(--shadow);
+    }
+
+    .alerts-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 16px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .alerts-title .icon {
+      width: 28px; height: 28px;
+      background: rgba(234,88,12,0.1);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+
+    .alert-count-badge {
+      margin-left: auto;
+      background: rgba(234,88,12,0.1);
+      color: #ea580c;
+      font-size: 12px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(234,88,12,0.25);
+    }
+
+    .alerts-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+      max-height: 580px;
+    }
+
+    .alert-card {
+      background: var(--card-bg2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+      animation: fadeUp 0.4s ease-out both;
+    }
+
+    .alert-card:hover {
+      transform: translateX(3px);
+      border-color: var(--primary-accent);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .alert-card::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      border-radius: 3px 0 0 3px;
+    }
+
+    .alert-card.overdue::before { background: #ef4444; }
+    .alert-card.urgent::before { background: var(--primary-accent); }
+    .alert-card.no-payment::before { background: #f59e0b; }
+    .alert-card.note::before { background: #8b5cf6; }
+
+    .alert-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .alert-tag {
+      font-size: 10px;
+      font-weight: 700;
+      font-family: 'Space Grotesk', sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 2px 8px;
+      border-radius: 6px;
+    }
+
+    .alert-tag.overdue { background: rgba(239,68,68,0.1); color: #dc2626; border: 1px solid rgba(239,68,68,0.25); }
+    .alert-tag.urgent { background: rgba(234,88,12,0.1); color: #ea580c; border: 1px solid rgba(234,88,12,0.25); }
+    .alert-tag.no-pay { background: rgba(245,158,11,0.1); color: #d97706; border: 1px solid rgba(245,158,11,0.25); }
+    .alert-tag.note { background: rgba(139,92,246,0.1); color: #7c3aed; border: 1px solid rgba(139,92,246,0.25); }
+
+    .alert-time {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    .alert-id {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 3px;
+    }
+
+    .alert-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .alert-route {
+      font-size: 11px;
+      color: var(--secondary);
+      margin-top: 4px;
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    /* ===== MODAL ===== */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15,23,42,0.6);
+      backdrop-filter: blur(8px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s, visibility 0.3s;
+      padding: 20px;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      width: 100%;
+      max-width: 960px;
+      max-height: 90vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transform: scale(0.9) translateY(20px);
+      transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+    }
+
+    .modal-overlay.active .modal {
+      transform: scale(1) translateY(0);
+    }
+
+    .modal-header {
+      padding: 24px 28px 20px;
+      background: var(--card-bg2);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .modal-header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .modal-id {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .modal-close {
+      background: var(--card-bg2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 18px;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .modal-close:hover {
+      background: rgba(239,68,68,0.1);
+      border-color: rgba(239,68,68,0.3);
+      color: #dc2626;
+    }
+
+    .modal-body {
+      overflow-y: auto;
+      padding: 24px 28px;
+      flex: 1;
+    }
+
+    .modal-section-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--primary);
+      margin: 20px 0 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .modal-section-title:first-child { margin-top: 0; }
+
+    .modal-section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .detail-item {
+      background: var(--card-bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      transition: border-color 0.2s;
+    }
+
+    .detail-item:hover { border-color: var(--primary); }
+
+    .detail-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .detail-value {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      word-break: break-all;
+    }
+
+    .detail-empty { color: var(--text-muted); }
+
+    /* 明细工具条 */
+    .detail-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+      padding: 10px 12px;
+      background: var(--card-bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    .detail-copy-btn {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .detail-copy-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .detail-toggle {
+      font-size: 12px;
+      color: var(--text-muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .detail-toggle input { cursor: pointer; }
+    .detail-count { font-size: 12px; color: var(--text-muted); margin-left: auto; }
+    .group-count {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-muted);
+      background: var(--card-bg2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 1px 8px;
+      margin-left: 8px;
+    }
+    .detail-item.is-empty { display: none; }
+
+    /* ===== ANIMATIONS ===== */
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 1100px) {
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+      .bottom-row { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 768px) {
+      .container { padding: 16px; }
+      .header { flex-direction: column; gap: 12px; align-items: flex-start; }
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+      .detail-grid { grid-template-columns: 1fr; }
+      .filter-row { flex-wrap: wrap; }
+    }
+
+    @media (max-width: 480px) {
+      .stats-row { grid-template-columns: 1fr; }
+    }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: var(--text-muted);
+    }
+
+    .empty-state .icon { font-size: 32px; margin-bottom: 12px; opacity: 0.5; }
+    .empty-state p { font-size: 13px; }
+  /* ===== 密码门 ===== */
+  .gate {
+    position: fixed; inset: 0; z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #0f1e3d 0%, #1a3a6b 50%, #0f1e3d 100%);
+    padding: 20px;
+  }
+  .gate-card {
+    width: 380px; max-width: 92vw; background: #fff; border-radius: 18px;
+    padding: 38px 34px; text-align: center; box-shadow: 0 24px 70px rgba(0,0,0,.4);
+  }
+  .gate-logo { height: 56px; margin-bottom: 16px; }
+  .gate-title { font-family: 'Space Grotesk', sans-serif; font-size: 21px; font-weight: 700; color: #0f1e3d; letter-spacing: -.4px; }
+  .gate-sub { font-size: 12px; color: #64748b; margin-top: 5px; letter-spacing: .5px; }
+  .gate-divider { height: 1px; background: #eef2f7; margin: 22px 0; }
+  .gate-hint { font-size: 13px; color: #475569; margin-bottom: 16px; }
+  .gate-input-row { display: flex; gap: 8px; }
+  .gate-input {
+    flex: 1; padding: 11px 14px; border: 1px solid #d8e0ec; border-radius: 10px;
+    font-size: 14px; outline: none; transition: border-color .15s, box-shadow .15s;
+  }
+  .gate-input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.15); }
+  .gate-btn {
+    padding: 11px 22px; border: none; border-radius: 10px; background: #2563eb;
+    color: #fff; font-weight: 600; font-size: 14px; cursor: pointer; transition: background .15s;
+  }
+  .gate-btn:hover { background: #1d4ed8; }
+  .gate-btn:disabled { opacity: .6; cursor: default; }
+  .gate-error { color: #dc2626; font-size: 12px; margin-top: 12px; min-height: 14px; }
+
+  </style>
+</head>
+<body>
+
+<!-- ===== 密码门 ===== -->
+<div id="passwordGate" class="gate">
+  <div class="gate-card">
+    <img src="logo.jpg" alt="锦源晟 Jayson" class="gate-logo">
+    <div class="gate-title">绿动业务物流进度</div>
+    <div class="gate-sub">锦源晟绿动实时供应链追踪</div>
+    <div class="gate-divider"></div>
+    <div class="gate-hint">请输入访问密码以查看实时供应链进度</div>
+    <div class="gate-input-row">
+      <input type="password" id="gatePassword" class="gate-input" placeholder="访问密码" autocomplete="off">
+      <button id="gateSubmit" class="gate-btn">进入</button>
+    </div>
+    <div id="gateError" class="gate-error"></div>
+  </div>
+</div>
+
+<!-- ===== HEADER ===== -->
+<div class="container">
+  <header class="header">
+    <div class="header-left">
+      <img src="logo.jpg" alt="锦源晟 Jayson" class="header-logo">
+      <div>
+        <div class="header-title">绿动业务物流进度</div>
+        <div class="header-subtitle">锦源晟绿动实时供应链追踪</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="last-updated">
+        <span class="dot"></span>
+        <span class="label">文档同步于</span>
+        <span class="time" id="lastUpdated">加载中...</span>
+      </div>
+      <div class="current-date" id="currentDate"></div>
+      <button class="refresh-btn" onclick="manualRefresh()">
+        <span>🔄</span> 刷新数据
+      </button>
+    </div>
+  </header>
+
+  <!-- ===== SECTION: 核心概览 ===== -->
+  <div class="section-label">核心概览 · Overview</div>
+  <!-- ===== METRICS ROW (8等份: 统计卡片x4 + 图表x2) ===== -->
+  <div class="metrics-row">
+    <div class="stat-card blue">
+      <div class="stat-icon">📦</div>
+      <div class="stat-label">Total Orders</div>
+      <div class="stat-value" id="statTotal">0</div>
+      <div class="stat-sub">全部订单</div>
+      <div class="stat-amount" id="statTotalAmount">合计 ¥0</div>
+    </div>
+    <div class="stat-card orange">
+      <div class="stat-icon">🚛</div>
+      <div class="stat-label">Arrived</div>
+      <div class="stat-value" id="statTransit">0</div>
+      <div class="stat-sub">已到港</div>
+      <div class="stat-amount" id="statTransitAmount">合计 ¥0</div>
+    </div>
+    <div class="stat-card lightblue">
+      <div class="stat-icon">🚢</div>
+      <div class="stat-label">Shipped</div>
+      <div class="stat-value" id="statShipped">0</div>
+      <div class="stat-sub">海运中</div>
+      <div class="stat-amount" id="statShippedAmount">合计 ¥0</div>
+    </div>
+    <div class="stat-card deepblue">
+      <div class="stat-icon">✅</div>
+      <div class="stat-label">Delivered</div>
+      <div class="stat-value" id="statDelivered">0</div>
+      <div class="stat-sub">已交付</div>
+      <div class="stat-amount" id="statDeliveredAmount">合计 ¥0</div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">
+        <div class="icon">📊</div>
+        物流状态分布
+      </div>
+      <div class="chart-wrap">
+        <canvas id="statusChart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">
+        <div class="icon">🚢</div>
+        运输方式分布
+      </div>
+      <div class="chart-wrap">
+        <canvas id="modeChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SECTION: 物流明细 ===== -->
+  <div class="section-label">物流明细表 · Details</div>
+  <!-- ===== BOTTOM ROW (预警已合并进明细表) ===== -->
+  <div class="bottom-row">
+    <!-- Table -->
+    <div class="table-card">
+      <div class="table-header">
+        <div class="table-title">
+          <div class="icon">📋</div>
+          物流明细表
+        </div>
+        <span class="alert-count-badge" id="alertCount">0 条预警</span>
+      </div>
+      <div class="filter-row">
+        <select class="filter-select" id="statusFilter" onchange="renderTable()">
+          <option value="">全部状态</option>
+          <option value="In Transit">已到港 Arrived</option>
+          <option value="Shipped">海运中 Shipped</option>
+          <option value="Delivered">已交付 Delivered</option>
+        </select>
+        <select class="filter-select" id="carrierFilter" onchange="renderTable()">
+          <option value="">全部承运商</option>
+        </select>
+        <input type="text" class="search-input" id="searchInput" placeholder="🔍 搜索合同号/提单号..." oninput="renderTable()">
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>合同号</th>
+              <th>提单号</th>
+              <th>状态</th>
+              <th class="col-note">注意事项</th>
+              <th>承运商</th>
+              <th>启运港</th>
+              <th>目的港</th>
+              <th>ETA（目的港）</th>
+              <th>柜号</th>
+              <th>柜型</th>
+              <th>柜量</th>
+              <th>总金额</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+      <div class="table-footer">
+        <span id="tableInfo">显示 0 条记录</span>
+        <span id="tablePageInfo"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL ===== -->
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <span id="modalId" class="modal-id"></span>
+        <span id="modalStatusBadge"></span>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ===== DATA ===== (手动同步 @ 2026-07-24T11:55:10.364516)
+const EMBEDDED_DATA = [];
+let logisticsData = EMBEDDED_DATA;
+let activeData = [...logisticsData];
+let lastFetchTime = '2026-07-24T11:55:10.364516';
+// ===== END DATA =====
+
+// ===== FETCH =====
+// 数据源：GitHub Pages 上的 data.json（由本机同步服务/定时任务 从腾讯文档实时同步）
+const DATA_URL = 'https://kamlshi.github.io/logistics-dashboard/data.json';
+
+// 访问密码（仅存于内存，刷新页面后失效；不落盘、不进源码）
+let sessionPassword = '';
+// 自动轮询定时器句柄（首次使用前需声明，否则严格模式下 ReferenceError 导致自动刷新失效）
+let autoPoller = null;
+
+function b64ToBytes(b64) {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+// 用密码解密 data.json（PBKDF2-SHA256 + AES-256-GCM，与 sync.py 互通）
+async function decryptData(encObj, password) {
+  const salt = b64ToBytes(encObj.salt);
+  const iv = b64ToBytes(encObj.iv);
+  const data = b64ToBytes(encObj.data);
+  const enc = new TextEncoder().encode(password);
+  const keyMat = await crypto.subtle.importKey('raw', enc, 'PBKDF2', false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: encObj.iter || 150000, hash: 'SHA-256' },
+    keyMat, { name: 'AES-GCM', length: 256 }, false, ['decrypt']
+  );
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data);
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+
+async function fetchDataJSON() {
+  // 未输入密码：不请求、不渲染任何数据
+  if (!sessionPassword) return false;
+  try {
+    const resp = await fetch(DATA_URL + '?t=' + Date.now(), {cache: 'no-store'});
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const raw = await resp.json();
+    let json;
+    if (raw && raw.data && raw.salt && raw.iv) {
+      json = await decryptData(raw, sessionPassword); // 密码错误会在此抛异常
+    } else {
+      json = raw; // 兼容未加密的旧数据
+    }
+    logisticsData = json.rows || json.orders || [];
+    lastFetchTime = json.lastUpdated || new Date().toISOString();
+    activeData = [...logisticsData];
+    return true;
+  } catch (e) {
+    console.warn('[Dashboard] fetch/decrypt 失败:', e.message);
+    return false;
+  }
+}
+
+// ===== 密码门逻辑 =====
+function showGateError(msg) {
+  const el = document.getElementById('gateError');
+  if (el) el.textContent = msg || '';
+}
+function hideGate() {
+  const g = document.getElementById('passwordGate');
+  if (g) g.style.display = 'none';
+}
+async function unlock(pw) {
+  sessionPassword = pw;
+  showGateError('');
+  const btn = document.getElementById('gateSubmit');
+  if (btn) { btn.disabled = true; btn.textContent = '校验中...'; }
+  const ok = await loadAndRender();
+  if (ok) {
+    hideGate();
+    startAutoPoll(30000);
+  } else {
+    sessionPassword = '';
+    showGateError('密码错误，请重试');
+    if (btn) { btn.disabled = false; btn.textContent = '进入'; }
+  }
+}
+function setupPasswordGate() {
+  const input = document.getElementById('gatePassword');
+  const btn = document.getElementById('gateSubmit');
+  const submit = () => {
+    const pw = (input.value || '').trim();
+    if (!pw) return;
+    unlock(pw);
+  };
+  if (btn) btn.addEventListener('click', submit);
+  if (input) {
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+    input.focus();
+  }
+}
+
+// ===== DATE UTILS =====
+const today = new Date();
+const todayStr = today.toISOString().slice(0, 10);
+
+function formatDate(d) {
+  if (!d) return '—';
+  return d;
+}
+
+function daysUntil(dateStr) {
+  if (!dateStr) return null;
+  const eta = new Date(dateStr);
+  const diff = Math.ceil((eta - today) / (1000 * 60 * 60 * 24));
+  return diff;
+}
+
+function fmt(v) {
+  return v == null || v === '' ? '—' : String(v);
+}
+
+function formatSyncTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) {
+    const s = String(iso);
+    return s.length >= 19 ? s.slice(0, 19).replace('T', ' ') : s;
+  }
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+// 转义用户自由文本，避免拼进 innerHTML 时破坏结构 / XSS
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// 宽容数字解析：处理 "1,234.5"、"88?"、"30800?" 等源表录入格式；失败返回 null
+function toNum(v) {
+  if (v == null || v === '') return null;
+  if (typeof v === 'number') return isNaN(v) ? null : v;
+  const cleaned = String(v).replace(/[,\s?￥$]/g, '');
+  if (cleaned === '') return null;
+  const num = Number(cleaned);
+  return isNaN(num) ? null : num;
+}
+
+function fmtNum(n) {
+  if (n == null || n === '') return '—';
+  const num = toNum(n);
+  return num === null ? String(n).trim() : num.toLocaleString('en-US');
+}
+
+// ===== CURRENT DATE =====
+function initDate() {
+  const opts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+  document.getElementById('currentDate').textContent = today.toLocaleDateString('zh-CN', opts);
+}
+
+// ===== STATS =====
+// 货币符号：跟随数据「币值」列（USD→$，其余/CNY/空→¥）
+let DISPLAY_SYMBOL = '¥';
+function updateCurrencySymbol(list) {
+  const cnt = {};
+  (list || []).forEach(d => {
+    const c = (d.currency || '').toString().trim().toUpperCase();
+    if (c) cnt[c] = (cnt[c] || 0) + 1;
+  });
+  let best = '', bestN = 0;
+  for (const k in cnt) { if (cnt[k] > bestN) { bestN = cnt[k]; best = k; } }
+  DISPLAY_SYMBOL = (best === 'USD') ? '$' : '¥';
+  // 同步更新统计卡片的「合计 X0」货币符号
+  ['statTotalAmount','statTransitAmount','statShippedAmount','statDeliveredAmount'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '合计 ' + DISPLAY_SYMBOL + '0';
+  });
+}
+
+function sumAmount(list) {
+  return list.reduce((s, d) => s + (Number(d.totalPrice) || 0), 0);
+}
+
+function fmtMoney(n) {
+  const num = toNum(n);
+  return num === null
+    ? DISPLAY_SYMBOL + String(n).trim()
+    : DISPLAY_SYMBOL + num.toLocaleString('zh-CN', { maximumFractionDigits: 0 });
+}
+
+function updateStats() {
+  updateCurrencySymbol(activeData);
+  const total = activeData.length;
+  const transit = activeData.filter(d => d.status === 'In Transit');
+  const shipped = activeData.filter(d => d.status === 'Shipped');
+  const delivered = activeData.filter(d => d.status === 'Delivered');
+  animateCounter('statTotal', total);
+  animateCounter('statTransit', transit.length);
+  animateCounter('statShipped', shipped.length);
+  animateCounter('statDelivered', delivered.length);
+  document.getElementById('statTotalAmount').textContent = '合计 ' + fmtMoney(sumAmount(activeData));
+  document.getElementById('statTransitAmount').textContent = '合计 ' + fmtMoney(sumAmount(transit));
+  document.getElementById('statShippedAmount').textContent = '合计 ' + fmtMoney(sumAmount(shipped));
+  document.getElementById('statDeliveredAmount').textContent = '合计 ' + fmtMoney(sumAmount(delivered));
+}
+
+function animateCounter(id, target) {
+  const el = document.getElementById(id);
+  const duration = 800;
+  const start = performance.now();
+  const from = 0;
+  function tick(now) {
+    const elapsed = now - start;
+    const progress = Math.min(elapsed / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    el.textContent = Math.round(from + (target - from) * eased);
+    if (progress < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+// ===== CARRIER FILTER =====
+function initCarrierFilter() {
+  const carriers = [...new Set(logisticsData.map(d => d.carrier))].sort();
+  const sel = document.getElementById('carrierFilter');
+  carriers.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c;
+    opt.textContent = c;
+    sel.appendChild(opt);
+  });
+}
+
+// ===== CHART.JS CONFIGS =====
+const CHART_COLORS = {
+  transit: '#f59e0b',
+  shipped: '#3b82f6',
+  delivered: '#10b981',
+  primary: '#2563eb',
+  primaryAccent: '#f59e0b',
+  secondary: '#3b82f6',
+  secondaryAccent: '#34d399',
+  teal: '#06b6d4',
+};
+
+Chart.defaults.color = '#8a9ab5';
+Chart.defaults.font.family = "'Space Grotesk', sans-serif";
+Chart.defaults.plugins.legend.display = false;
+
+// 环形图中心文字插件
+const centerTextPlugin = {
+  id: 'centerText',
+  afterDraw(chart, args, opts) {
+    if (!opts || !opts.text) return;
+    const { ctx, chartArea: { left, right, top, bottom } } = chart;
+    const cx = (left + right) / 2;
+    const cy = (top + bottom) / 2;
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = opts.color || '#1e293b';
+    ctx.font = "700 28px 'Space Grotesk', sans-serif";
+    ctx.fillText(opts.text, cx, cy - 6);
+    ctx.fillStyle = '#8a9ab5';
+    ctx.font = "600 11px 'Space Grotesk', sans-serif";
+    ctx.fillText(opts.sub || '', cx, cy + 16);
+    ctx.restore();
+  }
+};
+Chart.register(centerTextPlugin);
+
+const TOOLTIP_THEME = {
+  backgroundColor: '#ffffff',
+  titleColor: '#1e293b',
+  bodyColor: '#475569',
+  borderColor: 'rgba(37,99,235,0.18)',
+  borderWidth: 1,
+  titleFont: { family: "'Space Grotesk', sans-serif", size: 13, weight: '600' },
+  bodyFont: { family: "'Space Grotesk', sans-serif", size: 12 },
+  padding: 12,
+  cornerRadius: 10,
+  boxPadding: 6,
+};
+
+let statusChartInstance = null;
+let modeChartInstance = null;
+
+function renderCharts() {
+  const transit = activeData.filter(d => d.status === 'In Transit').length;
+  const shipped = activeData.filter(d => d.status === 'Shipped').length;
+  const delivered = activeData.filter(d => d.status === 'Delivered').length;
+
+  const modeCounts = {};
+  let modeContainerSum = 0;
+  activeData.forEach(d => {
+    const mode = d.transportMode || '其他';
+    modeCounts[mode] = (modeCounts[mode] || 0) + 1;
+    modeContainerSum += Number(d.containerCount) || 0;
+  });
+
+  if (statusChartInstance) statusChartInstance.destroy();
+  if (modeChartInstance) modeChartInstance.destroy();
+
+  // Doughnut
+  const sc = document.getElementById('statusChart').getContext('2d');
+  statusChartInstance = new Chart(sc, {
+    type: 'doughnut',
+    data: {
+      labels: ['已到港 Arrived', '海运中 Shipped', '已交付 Delivered'],
+      datasets: [{
+        data: [transit, shipped, delivered],
+        backgroundColor: [CHART_COLORS.transit, CHART_COLORS.shipped, CHART_COLORS.delivered],
+        borderColor: '#ffffff',
+        borderWidth: 3,
+        hoverOffset: 8,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '66%',
+      layout: { padding: 4 },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'bottom',
+          labels: {
+            color: '#64748b',
+            padding: 14,
+            font: { size: 12, family: "'Space Grotesk', sans-serif" },
+            usePointStyle: true,
+            pointStyleWidth: 10,
+          }
+        },
+        centerText: { text: String(activeData.length), sub: '订单总数', color: '#1e293b' },
+        tooltip: TOOLTIP_THEME
+      },
+      animation: { animateRotate: true, duration: 1000, easing: 'easeOutQuart' }
+    }
+  });
+
+  // 运输方式分布环形图（中心显示总柜量）
+  const mc = document.getElementById('modeChart').getContext('2d');
+  const modeLabels = Object.keys(modeCounts);
+  const modeValues = Object.values(modeCounts);
+  const pieColors = [CHART_COLORS.shipped, CHART_COLORS.transit, CHART_COLORS.delivered, CHART_COLORS.teal, CHART_COLORS.secondaryAccent];
+
+  modeChartInstance = new Chart(mc, {
+    type: 'doughnut',
+    data: {
+      labels: modeLabels,
+      datasets: [{
+        data: modeValues,
+        backgroundColor: pieColors.slice(0, modeLabels.length),
+        borderColor: '#ffffff',
+        borderWidth: 3,
+        hoverOffset: 8,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '66%',
+      layout: { padding: 4 },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'bottom',
+          labels: {
+            color: '#64748b',
+            padding: 14,
+            font: { size: 12, family: "'Space Grotesk', sans-serif" },
+            usePointStyle: true,
+            pointStyleWidth: 10,
+          }
+        },
+        centerText: { text: String(modeContainerSum), sub: '总柜量', color: '#1e293b' },
+        tooltip: TOOLTIP_THEME
+      },
+      animation: { animateRotate: true, duration: 1000, easing: 'easeOutQuart' }
+    }
+  });
+}
+
+// ===== TABLE =====
+// 状态显示统一为中文+英文，与核心概览/环形图图例保持一致
+function statusLabel(s) {
+  const map = {
+    'In Transit': '已到港 Arrived',
+    'Shipped': '海运中 Shipped',
+    'Delivered': '已交付 Delivered',
+  };
+  return map[s] || s;
+}
+
+function getBadgeHtml(status) {
+  const clsMap = {
+    'In Transit': 'badge-transit',
+    'Shipped': 'badge-shipped',
+    'Delivered': 'badge-delivered',
+  };
+  const cls = clsMap[status] || 'badge-transit';
+  return `<span class="badge ${cls}">${esc(statusLabel(status))}</span>`;
+}
+
+function renderTable() {
+  const statusF = document.getElementById('statusFilter').value;
+  const carrierF = document.getElementById('carrierFilter').value;
+  const search = document.getElementById('searchInput').value.toLowerCase();
+
+  const filtered = activeData.filter(d => {
+    if (statusF && d.status !== statusF) return false;
+    if (carrierF && d.carrier !== carrierF) return false;
+    if (search && !d.contractNo.toLowerCase().includes(search) && !d.blNo.toLowerCase().includes(search) && !String(d.containerNo || '').toLowerCase().includes(search) && !String(d.notes || '').toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  const tbody = document.getElementById('tableBody');
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="12"><div class="empty-state"><div class="icon">📭</div><p>暂无匹配记录</p></div></td></tr>`;
+    document.getElementById('tableInfo').textContent = '显示 0 条记录';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map((d, i) => {
+    const note = d.notes == null ? '' : String(d.notes);
+    const isAlert = note.includes('预警');
+    const noteHtml = note
+      ? (isAlert
+          ? `<span class="note-inline alert" title="${esc(note)}">⚠ ${esc(note)}</span>`
+          : `<span class="note-inline" title="${esc(note)}">${esc(note)}</span>`)
+      : '<span class="muted-dot">·</span>';
+    return `
+    <tr class="${isAlert ? 'has-alert' : ''}" onclick="openModal('${d.id}')" style="animation-delay:${i * 0.03}s">
+      <td><span class="mono">${fmt(d.contractNo)}</span></td>
+      <td><span class="mono" style="color:var(--secondary-accent)">${fmt(d.blNo)}</span></td>
+      <td>${getBadgeHtml(d.status)}</td>
+      <td class="col-note">${noteHtml}</td>
+      <td>${fmt(d.carrier)}</td>
+      <td>${fmt(d.shipper)}</td>
+      <td>${fmt(d.destination)}</td>
+      <td><span class="mono">${fmt(d.etaDest)}</span></td>
+      <td><span class="mono">${fmt(d.containerNo)}</span></td>
+      <td>${fmt(d.containerType)}</td>
+      <td><span class="mono" style="color:var(--secondary)">${d.containerCount}</span></td>
+      <td><span class="mono" style="color:var(--text);font-weight:500">${fmtMoney(d.totalPrice)}</span></td>
+    </tr>
+  `;
+  }).join('');
+
+  // 合计金额行
+  const totalSum = sumAmount(filtered);
+  tbody.innerHTML += `
+    <tr style="background:var(--card-bg2);font-weight:700;cursor:default;">
+      <td colspan="10" style="text-align:right;color:var(--text-muted);font-size:13px;letter-spacing:0.5px;">合计</td>
+      <td style="color:var(--text-muted);font-size:13px;">${filtered.length} 条</td>
+      <td><span class="mono" style="color:var(--primary-accent);font-weight:600;font-size:14px;">${fmtMoney(totalSum)}</span></td>
+    </tr>`;
+
+  document.getElementById('tableInfo').textContent = `显示 ${filtered.length} 条记录，合计 ${fmtMoney(totalSum)}`;
+
+  // 预警计数（仅统计"注意事项"中含"预警"字样的行）
+  const alertCount = filtered.filter(d => d.notes && String(d.notes).includes('预警')).length;
+  const badge = document.getElementById('alertCount');
+  if (alertCount > 0) {
+    badge.textContent = `⚠ ${alertCount} 条预警`;
+    badge.classList.remove('ok');
+  } else {
+    badge.textContent = '✅ 无预警';
+    badge.classList.add('ok');
+  }
+}
+
+// ===== ALERTS (已合并进明细表：仅"注意事项"含"预警"字样的行才标黄高亮，列头为"注意事项") =====
+
+// ===== MODAL =====
+// 明细渲染：严格按腾讯文档「物流进度1.0」表头顺序逐列对应（与 data.json.allCols 1:1）
+const MONEY_KEYS = new Set(['unitPrice', 'totalPrice']);
+const NUM_KEYS = new Set(['containerCount', 'packages', 'quantity', 'netWeight', 'grossWeight']);
+
+function detailDisplay(key, val) {
+  if (val === '' || val == null) return '';
+  if (key === 'status') return esc(statusLabel(val));
+  if (MONEY_KEYS.has(key)) return fmtMoney(val);
+  if (NUM_KEYS.has(key)) return fmtNum(val);
+  return fmt(val);
+}
+
+function isEmptyVal(v) {
+  return v === null || v === undefined || String(v).trim() === '';
+}
+
+// 按腾讯文档真实表头语义分组（仅视觉聚拢，不改变列顺序、不丢弃任何列）
+function detailGroupOf(label) {
+  const L = label || '';
+  if (/单价|总价|币值|放行|水单|放单/.test(L)) return '结算与放行';
+  if (/启运港|目的港|中转港|ETD|ETA|运输方式|承运|船公司|轨迹|船名|电放/.test(L)) return '港口与船期';
+  if (/柜量|柜型|件数|净重|毛重|货名|数量|单位|柜号/.test(L)) return '集装箱与货物';
+  if (/状态|合同|提单|报告编号|注意事项/.test(L)) return '订单与单证';
+  return '其他';
+}
+
+function buildDetailHtml(d) {
+  // 优先使用同步时保存的全部源表列（与腾讯文档表头 1:1 对应）
+  let cols = (d.allCols && d.allCols.length) ? d.allCols : null;
+  if (!cols) {
+    // 兼容旧数据：从已知字段构造最小明细
+    cols = [
+      {label:'物流状态',key:'status',value:statusLabel(d.status)},
+      {label:'合同号',key:'contractNo',value:d.contractNo},
+      {label:'提单号 (BL#)',key:'blNo',value:d.blNo},
+      {label:'启运港',key:'shipper',value:d.shipper},
+      {label:'目的港',key:'destination',value:d.destination},
+      {label:'承运商',key:'carrier',value:d.carrier},
+      {label:'船公司',key:'shipCompany',value:d.shipCompany},
+      {label:'柜号',key:'containerNo',value:d.containerNo},
+      {label:'柜型',key:'containerType',value:d.containerType},
+      {label:'柜量',key:'containerCount',value:d.containerCount},
+      {label:'货名',key:'goodsName',value:d.goodsName},
+      {label:'总价',key:'totalPrice',value:d.totalPrice},
+      {label:'注意事项',key:'notes',value:d.notes},
+    ];
+  }
+  const GROUP_ORDER = ['订单与单证', '港口与船期', '集装箱与货物', '结算与放行', '其他'];
+  const groups = {};
+  cols.forEach(c => {
+    const g = detailGroupOf(c.label);
+    (groups[g] = groups[g] || []).push(c);
+  });
+
+  let html = '<div class="detail-toolbar">'
+    + '<button class="detail-copy-btn" onclick="copyRowJson()">📋 复制行 JSON</button>'
+    + '<label class="detail-toggle"><input type="checkbox" id="showEmptyCols" onchange="toggleEmptyCols(this.checked)"> 显示空字段</label>'
+    + '<span class="detail-count">共 ' + cols.length + ' 项 · 与腾讯文档表头对应</span>'
+    + '</div>';
+
+  GROUP_ORDER.forEach(g => {
+    const items = groups[g];
+    if (!items || !items.length) return;
+    const nonEmpty = items.filter(c => !isEmptyVal(c.value)).length;
+    html += '<div class="modal-section-title">' + esc(g) + '<span class="group-count">' + nonEmpty + '/' + items.length + ' 有值</span></div>';
+    html += '<div class="detail-grid">';
+    items.forEach(c => {
+      const key = c.key || '';
+      const emptyCls = isEmptyVal(c.value) ? ' is-empty' : '';
+      const valHtml = isEmptyVal(c.value)
+        ? '<span class="detail-empty">—</span>'
+        : detailDisplay(key, c.value);
+      html += '<div class="detail-item' + emptyCls + '">'
+        + '<div class="detail-label">' + esc(c.label) + '</div>'
+        + '<div class="detail-value">' + valHtml + '</div>'
+        + '</div>';
+    });
+    html += '</div>';
+  });
+  return html;
+}
+
+let currentModalRow = null;
+
+function openModal(id) {
+  const d = activeData.find(x => x.id === id);
+  if (!d) return;
+  currentModalRow = d;
+
+  document.getElementById('modalId').textContent = d.id;
+  document.getElementById('modalStatusBadge').innerHTML = getBadgeHtml(d.status);
+
+  document.getElementById('modalBody').innerHTML = buildDetailHtml(d);
+
+  document.getElementById('modalOverlay').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function copyRowJson() {
+  if (!currentModalRow) return;
+  const txt = JSON.stringify(currentModalRow, null, 2);
+  const done = () => showToast('已复制该行 JSON', 'success');
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txt).then(done).catch(() => fallbackCopy(txt, done));
+  } else {
+    fallbackCopy(txt, done);
+  }
+}
+
+function fallbackCopy(txt, cb) {
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = txt;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+    cb && cb();
+  } catch (e) {
+    showToast('复制失败，请手动复制', 'error');
+  }
+}
+
+function toggleEmptyCols(show) {
+  document.querySelectorAll('.detail-item.is-empty').forEach(el => {
+    el.style.display = show ? '' : 'none';
+  });
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+});
+
+// ===== REFRESH =====
+// 通过本机同步中继（localhost:8765）即时从腾讯文档拉取最新数据并推送 GitHub Pages
+async function triggerSync() {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 90000);
+  try {
+    const resp = await fetch('http://127.0.0.1:8765/sync', {mode: 'cors', cache: 'no-store', signal: ctrl.signal});
+    clearTimeout(t);
+    if (!resp.ok) {
+      let msg = '同步服务返回错误';
+      try { const j = await resp.json(); msg = j.message || msg; } catch (e) {}
+      return {ok: false, message: msg};
+    }
+    const j = await resp.json();
+    if (j && j.ok) return {ok: true, rowCount: j.rowCount, lastUpdated: j.lastUpdated, message: j.message};
+    return {ok: false, message: (j && j.message) || '同步失败'};
+  } catch (e) {
+    clearTimeout(t);
+    // 本地服务未启动 / 网络不通：回退为仅重新加载已同步数据
+    return {ok: false, offline: true, message: '本地同步服务未启动'};
+  }
+}
+
+function showToast(msg, type) {
+  let el = document.getElementById('sync-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'sync-toast';
+    el.style.cssText = 'position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:9999;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:500;box-shadow:0 4px 18px rgba(0,0,0,.15);transition:opacity .3s, transform .3s;pointer-events:none;';
+    document.body.appendChild(el);
+  }
+  const colors = {success: '#16a34a', warn: '#d97706', error: '#dc2626'};
+  el.style.background = colors[type] || '#334155';
+  el.style.color = '#fff';
+  el.textContent = msg;
+  el.style.opacity = '1';
+  el.style.transform = 'translateX(-50%) translateY(0)';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateX(-50%) translateY(-8px)'; }, 3600);
+}
+
+// 仅重新加载最新 data.json 并渲染（自动轮询 / 初始化使用，不触发本地同步）
+async function loadAndRender() {
+  const ok = await fetchDataJSON();
+  if (ok) {
+    initCarrierFilter();
+    updateStats();
+    renderCharts();
+    renderTable();
+  }
+  const el = document.getElementById('lastUpdated');
+  const syncStr = formatSyncTime(lastFetchTime);
+  if (el) el.textContent = syncStr + (ok ? '' : ' (离线缓存)');
+  const dot = document.querySelector('.last-updated .dot');
+  if (dot) dot.style.background = ok ? '#4ade80' : '#f59e0b';
+  return ok;
+}
+
+// 手动点「刷新」：优先触发本机中继同步（即时拉文档）；
+// 若本机同步服务未运行（线上页面常态），则重新加载线上已发布的最新 data.json
+async function manualRefresh() {
+  const btn = document.querySelector('.refresh-btn');
+  const dot = document.querySelector('.last-updated .dot');
+  const original = btn.innerHTML;
+  btn.innerHTML = '<span>⏳</span> 同步中...';
+  btn.disabled = true;
+  if (dot) dot.style.background = '#f59e0b';
+
+  const sync = await triggerSync();
+  if (sync.ok) {
+    showToast(`✅ 已从腾讯文档同步最新数据（${sync.rowCount ?? 0} 行）`, 'success');
+    await loadAndRender();
+  } else if (sync.offline) {
+    // 本机中继未运行：重新加载线上已发布的最新 data.json（不含腾讯文档未同步的新数据）
+    const ok = await loadAndRender();
+    showToast(ok ? '✅ 已加载线上最新数据（本机同步服务未运行，无法从腾讯文档拉取）'
+                 : '⚠️ 加载线上数据失败，请检查网络', ok ? 'success' : 'warn');
+  } else {
+    showToast('❌ 本地同步失败：' + (sync.message || ''), 'error');
+    await loadAndRender();
+  }
+
+  btn.innerHTML = original;
+  btn.disabled = false;
+}
+
+// ===== AUTO POLL =====
+function startAutoPoll(intervalMs) {
+  if (autoPoller) clearInterval(autoPoller);
+  autoPoller = setInterval(loadAndRender, intervalMs);
+}
+
+// ===== INIT =====
+async function init() {
+  initDate();
+  // 先显示密码门；输入正确密码后才拉取并解密数据（未输密码不渲染任何内容）
+  setupPasswordGate();
+
+  // Redraw charts on resize
+  window.addEventListener('resize', () => {
+    if (statusChartInstance) statusChartInstance.resize();
+    if (modeChartInstance) modeChartInstance.resize();
+  });
+}
+
+// 页面加载完成后初始化
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
