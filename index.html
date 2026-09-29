@@ -1052,7 +1052,7 @@
               <th>承运商</th>
               <th>启运港</th>
               <th>目的港</th>
-              <th>ETA</th>
+              <th>ETA（目的港）</th>
               <th>柜号</th>
               <th>柜型</th>
               <th>柜量</th>
@@ -1476,7 +1476,7 @@ function renderTable() {
   const filtered = activeData.filter(d => {
     if (statusF && d.status !== statusF) return false;
     if (carrierF && d.carrier !== carrierF) return false;
-    if (search && !d.contractNo.toLowerCase().includes(search) && !d.blNo.toLowerCase().includes(search) && !d.customerName.toLowerCase().includes(search) && !String(d.notes || '').toLowerCase().includes(search)) return false;
+    if (search && !d.contractNo.toLowerCase().includes(search) && !d.blNo.toLowerCase().includes(search) && !String(d.containerNo || '').toLowerCase().includes(search) && !String(d.notes || '').toLowerCase().includes(search)) return false;
     return true;
   });
 
@@ -1504,7 +1504,7 @@ function renderTable() {
       <td>${fmt(d.carrier)}</td>
       <td>${fmt(d.shipper)}</td>
       <td>${fmt(d.destination)}</td>
-      <td><span class="mono">${fmt(d.eta)}</span></td>
+      <td><span class="mono">${fmt(d.etaDest)}</span></td>
       <td><span class="mono">${fmt(d.containerNo)}</span></td>
       <td>${fmt(d.containerType)}</td>
       <td><span class="mono" style="color:var(--secondary)">${d.containerCount}</span></td>
@@ -1539,68 +1539,51 @@ function renderTable() {
 // ===== ALERTS (已合并进明细表：仅"注意事项"含"预警"字样的行才标黄高亮，列头为"注意事项") =====
 
 // ===== MODAL =====
-const FIELD_GROUPS = [
-  {
-    title: '基本信息 Basic Info',
-    fields: [
-      { key: 'id', label: '订单号 ID' },
-      { key: 'status', label: '状态 Status' },
-      { key: 'contractNo', label: '合同号 Contract No', mono: true },
-      { key: 'blNo', label: '提单号 BL No', mono: true },
-      { key: 'reportNo', label: '报告号 Report No', mono: true },
-    ]
-  },
-  {
-    title: '船务信息 Shipping',
-    fields: [
-      { key: 'shipCompany', label: '船公司 Shipping Line' },
-      { key: 'carrier', label: '承运商 Carrier' },
-      { key: 'vessel', label: '船名 Vessel' },
-      { key: 'transportMode', label: '运输方式 Transport Mode' },
-      { key: 'type', label: '提单类型 BL Type' },
-      { key: 'transitPort', label: '中转港 Transit Port' },
-    ]
-  },
-  {
-    title: '货物信息 Cargo',
-    fields: [
-      { key: 'goodsName', label: '货物品名 Goods' },
-      { key: 'packages', label: '件数 Packages' },
-      { key: 'quantity', label: '数量 Quantity' },
-      { key: 'unit', label: '单位 Unit' },
-      { key: 'netWeight', label: '净重 Net Weight (kg)' },
-      { key: 'grossWeight', label: '毛重 Gross Weight (kg)' },
-      { key: 'containerNo', label: '柜号 Container No' },
-      { key: 'containerType', label: '柜型 Container Type' },
-      { key: 'containerCount', label: '柜量 Container Count' },
-    ]
-  },
-  {
-    title: '价格信息 Pricing',
-    fields: [
-      { key: 'unitPrice', label: '单价 Unit Price' },
-      { key: 'totalPrice', label: '总价 Total Price' },
-      { key: 'customerName', label: '客户 Customer' },
-    ]
-  },
-  {
-    title: '港口与物流 Port & Logistics',
-    fields: [
-      { key: 'shipper', label: '启运港 Shipper/Origin' },
-      { key: 'destination', label: '目的港 Destination' },
-      { key: 'eta', label: '预计到港 ETA' },
-      { key: 'estRelease', label: '预计放货 Est Release' },
-      { key: 'actualRelease', label: '实际放货 Actual Release' },
-      { key: 'releaseTime', label: '放货时间 Release Time' },
-    ]
-  },
-  {
-    title: '付款信息 Payment',
-    fields: [
-      { key: 'paymentDate', label: '付款日期 Payment Date' },
-    ]
+// 明细渲染：严格按腾讯文档「物流进度1.0」表头顺序逐列对应（与 data.json.allCols 1:1）
+const MONEY_KEYS = new Set(['unitPrice', 'totalPrice']);
+const NUM_KEYS = new Set(['containerCount', 'packages', 'quantity', 'netWeight', 'grossWeight']);
+const MONO_KEYS = new Set(['contractNo', 'blNo', 'containerNo', 'reportNo', 'vessel', 'type', 'transportMode', 'currency']);
+
+function detailDisplay(key, val) {
+  if (val === '' || val == null) return '';
+  if (MONEY_KEYS.has(key)) return fmtMoney(val);
+  if (NUM_KEYS.has(key)) return fmtNum(val);
+  return fmt(val);
+}
+
+function buildDetailHtml(d) {
+  // 优先使用同步时保存的全部源表列（与腾讯文档表头 1:1 对应）
+  let cols = (d.allCols && d.allCols.length) ? d.allCols : null;
+  if (!cols) {
+    // 兼容旧数据：从已知字段构造最小明细
+    cols = [
+      {label:'物流状态',key:'status',value:d.status},
+      {label:'合同号',key:'contractNo',value:d.contractNo},
+      {label:'提单号 (BL#)',key:'blNo',value:d.blNo},
+      {label:'启运港',key:'shipper',value:d.shipper},
+      {label:'目的港',key:'destination',value:d.destination},
+      {label:'承运商',key:'carrier',value:d.carrier},
+      {label:'船公司',key:'shipCompany',value:d.shipCompany},
+      {label:'柜号',key:'containerNo',value:d.containerNo},
+      {label:'柜型',key:'containerType',value:d.containerType},
+      {label:'柜量',key:'containerCount',value:d.containerCount},
+      {label:'货名',key:'goodsName',value:d.goodsName},
+      {label:'总价',key:'totalPrice',value:d.totalPrice},
+      {label:'注意事项',key:'notes',value:d.notes},
+    ];
   }
-];
+  let html = '<div class="modal-section-title">物流明细 · 按腾讯文档表头（共 ' + cols.length + ' 项）</div><div class="detail-grid">';
+  cols.forEach(c => {
+    const key = c.key || '';
+    const isMono = MONO_KEYS.has(key);
+    html += '<div class="detail-item">'
+      + '<div class="detail-label">' + esc(c.label) + '</div>'
+      + '<div class="detail-value' + (isMono ? ' mono' : '') + '">' + detailDisplay(key, c.value) + '</div>'
+      + '</div>';
+  });
+  html += '</div>';
+  return html;
+}
 
 function openModal(id) {
   const d = activeData.find(x => x.id === id);
@@ -1609,24 +1592,7 @@ function openModal(id) {
   document.getElementById('modalId').textContent = d.id;
   document.getElementById('modalStatusBadge').innerHTML = getBadgeHtml(d.status);
 
-  let html = '';
-  FIELD_GROUPS.forEach(group => {
-    html += `<div class="modal-section-title">${group.title}</div><div class="detail-grid">`;
-    group.fields.forEach(field => {
-      const val = d[field.key];
-      const display = field.key === 'netWeight' || field.key === 'grossWeight'
-        ? fmtNum(val)
-        : field.key === 'unitPrice' || field.key === 'totalPrice'
-        ? fmtMoney(val)
-        : fmt(val);
-      html += `
-        <div class="detail-item">
-          <div class="detail-label">${field.label}</div>
-          <div class="detail-value ${field.mono ? 'mono' : ''}">${display}</div>
-        </div>`;
-    });
-    html += '</div>';
-  });
+  let html = buildDetailHtml(d);
 
   document.getElementById('modalBody').innerHTML = html;
   document.getElementById('modalOverlay').classList.add('active');
