@@ -843,11 +843,6 @@
       word-break: break-all;
     }
 
-    .detail-value.mono {
-      font-size: 13px;
-      color: var(--primary);
-    }
-
     .detail-empty { color: var(--text-muted); }
 
     /* 明细工具条 */
@@ -1275,9 +1270,20 @@ function esc(s) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+// 宽容数字解析：处理 "1,234.5"、"88?"、"30800?" 等源表录入格式；失败返回 null
+function toNum(v) {
+  if (v == null || v === '') return null;
+  if (typeof v === 'number') return isNaN(v) ? null : v;
+  const cleaned = String(v).replace(/[,\s?￥$]/g, '');
+  if (cleaned === '') return null;
+  const num = Number(cleaned);
+  return isNaN(num) ? null : num;
+}
+
 function fmtNum(n) {
   if (n == null || n === '') return '—';
-  return Number(n).toLocaleString('en-US');
+  const num = toNum(n);
+  return num === null ? String(n).trim() : num.toLocaleString('en-US');
 }
 
 // ===== CURRENT DATE =====
@@ -1310,7 +1316,10 @@ function sumAmount(list) {
 }
 
 function fmtMoney(n) {
-  return DISPLAY_SYMBOL + Number(n).toLocaleString('zh-CN', { maximumFractionDigits: 0 });
+  const num = toNum(n);
+  return num === null
+    ? DISPLAY_SYMBOL + String(n).trim()
+    : DISPLAY_SYMBOL + num.toLocaleString('zh-CN', { maximumFractionDigits: 0 });
 }
 
 function updateStats() {
@@ -1592,7 +1601,6 @@ function renderTable() {
 // 明细渲染：严格按腾讯文档「物流进度1.0」表头顺序逐列对应（与 data.json.allCols 1:1）
 const MONEY_KEYS = new Set(['unitPrice', 'totalPrice']);
 const NUM_KEYS = new Set(['containerCount', 'packages', 'quantity', 'netWeight', 'grossWeight']);
-const MONO_KEYS = new Set(['contractNo', 'blNo', 'containerNo', 'reportNo', 'vessel', 'type', 'transportMode', 'currency']);
 
 function detailDisplay(key, val) {
   if (val === '' || val == null) return '';
@@ -1657,14 +1665,13 @@ function buildDetailHtml(d) {
     html += '<div class="detail-grid">';
     items.forEach(c => {
       const key = c.key || '';
-      const isMono = MONO_KEYS.has(key);
       const emptyCls = isEmptyVal(c.value) ? ' is-empty' : '';
       const valHtml = isEmptyVal(c.value)
         ? '<span class="detail-empty">—</span>'
         : detailDisplay(key, c.value);
       html += '<div class="detail-item' + emptyCls + '">'
         + '<div class="detail-label">' + esc(c.label) + '</div>'
-        + '<div class="detail-value' + (isMono ? ' mono' : '') + '">' + valHtml + '</div>'
+        + '<div class="detail-value">' + valHtml + '</div>'
         + '</div>';
     });
     html += '</div>';
