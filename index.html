@@ -45,7 +45,7 @@ body{
   transition:background var(--t-theme),color var(--t-theme);
 }
 button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
-.mono{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+.mono{font-family:var(--font-art-num);font-variant-numeric:tabular-nums;letter-spacing:.2px}
 
 /* ===================== 密码门 ===================== */
 .gate{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;
@@ -56,7 +56,7 @@ body.unlocked .gate{opacity:0;pointer-events:none}
   border-radius:var(--r-l);box-shadow:var(--shadow-l);padding:30px 28px;text-align:center}
 .gate-logo{width:54px;height:54px;border-radius:16px;margin:0 auto 14px;display:flex;align-items:center;
   justify-content:center;color:#fff;font-weight:700;font-size:17px;letter-spacing:1px;
-  text-indent:1px;background:linear-gradient(135deg,var(--primary),#3b82f6);box-shadow:var(--shadow-m)}
+  text-indent:1px;background:linear-gradient(120deg,var(--primary),var(--accent));box-shadow:var(--shadow-m)}
 .gate-title{font-size:18px;font-weight:700;letter-spacing:.3px}
 .gate-sub{font-size:12px;color:var(--muted);margin-top:4px}
 .gate-divider{height:1px;background:var(--line);margin:20px 0}
@@ -75,7 +75,7 @@ body.unlocked .gate{opacity:0;pointer-events:none}
 .wrap{max-width:1280px;margin:0 auto;padding:18px 22px 48px}
 /* 顶栏 */
 .topbar{display:flex;align-items:center;gap:14px;padding:6px 2px 18px;flex-wrap:wrap}
-.logo{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--primary),#3b82f6);
+.logo{width:42px;height:42px;border-radius:12px;background:linear-gradient(120deg,var(--primary),var(--accent));
   display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;letter-spacing:1px;
   text-indent:1px;box-shadow:var(--shadow-m)}
 .brand h1{margin:0;font-size:18px;font-weight:700;letter-spacing:.3px}
@@ -150,7 +150,7 @@ thead th{text-align:left;font-size:11px;color:var(--muted);font-weight:600;paddi
 tbody tr{border-bottom:1px solid var(--line);cursor:pointer;transition:background .2s var(--ease-out),transform .36s var(--ease-back),opacity .3s var(--ease-out),filter .3s var(--ease-out)}
 [data-peers].spot tbody tr[data-peer]{opacity:.34;filter:saturate(.3)}
 [data-peers].spot tbody tr[data-peer].lit{opacity:1;filter:none;background:var(--primary-soft);transform:translateX(3px)}
-tbody td{padding:10px;font-size:12.5px;vertical-align:middle}
+tbody td{padding:10px;font-size:13px;font-family:var(--font-art);vertical-align:middle}
 tbody tr:hover{background:var(--panel-2)}
 tbody tr.has-alert{background:color-mix(in srgb,var(--warn) 9%,transparent)}
 .sumrow{background:var(--panel-2)!important;font-weight:700;cursor:default!important}
