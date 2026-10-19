@@ -233,6 +233,8 @@ html[data-spot="off"] .content.spot .card{opacity:1;filter:none;transform:none}
   padding:10px 14px;border-radius:10px;box-shadow:var(--shadow-m);font-size:12.5px;
   animation:toastIn .28s var(--ease-out)}
 @keyframes toastIn{from{opacity:0;transform:translateX(20px) scale(.96)}to{opacity:1;transform:none}}
+.spin{display:inline-block;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 
 @media(max-width:1080px){.stats{grid-template-columns:repeat(2,1fr)}.mid{grid-template-columns:1fr}}
 @media(max-width:560px){.stats{grid-template-columns:1fr}.donut-wrap{flex-direction:column}}
@@ -768,7 +770,7 @@ function setupPasswordGate(){
 
 /* ============ 同步 / 刷新 ============ */
 async function triggerSync(){
-  const ctrl=new AbortController();const t=setTimeout(()=>ctrl.abort(),90000);
+  const ctrl=new AbortController();const t=setTimeout(()=>ctrl.abort(),5000);
   try{
     const resp=await fetch('http://127.0.0.1:8765/sync',{mode:'cors',cache:'no-store',signal:ctrl.signal});
     clearTimeout(t);
@@ -778,7 +780,7 @@ async function triggerSync(){
     return {ok:false,message:(j&&j.message)||'同步失败'};
   }catch(e){clearTimeout(t);return {ok:false,offline:true,message:'本地同步服务未启动'};}
 }
-async function loadAndRender(){
+async function loadAndRender(silent){
   const ok=await fetchDataJSON();
   const dot=$('#syncDot');
   if(ok){
@@ -788,18 +790,23 @@ async function loadAndRender(){
   }else{
     if(dot)dot.style.background='#f59e0b';
   }
+  if(!silent)toast(ok?'✅ 已加载线上最新数据（'+DATA.length+' 单）':'⚠️ 加载线上数据失败，沿用已显示内容');
   return ok;
 }
 async function manualRefresh(){
   const btn=$('#refreshBtn');const original=btn.innerHTML;
-  btn.innerHTML='<span>⏳</span> 同步中...';btn.disabled=true;
+  btn.innerHTML='<span class="spin">⟳</span> 同步中...';btn.disabled=true;
+  let reloadReason='';
   const sync=await triggerSync();
-  if(sync.ok){toast('✅ 已从腾讯文档同步最新数据（'+(sync.rowCount||0)+' 行）');await loadAndRender();}
-  else if(sync.offline){const ok=await loadAndRender();toast(ok?'✅ 已加载线上最新数据（本机同步服务未运行）':'⚠️ 加载线上数据失败');}
-  else{toast('❌ 本地同步失败：'+(sync.message||''));await loadAndRender();}
+  if(sync.ok){reloadReason='✅ 已从腾讯文档同步最新数据（'+(sync.rowCount||0)+' 行）';}
+  else if(sync.offline){reloadReason='ⓘ 本机同步服务未运行，已重新拉取线上最新发布数据';}
+  else{reloadReason='⚠️ 本地同步失败：'+(sync.message||'')+'，已重新拉取线上数据';}
+  const ok=await loadAndRender(true);
+  if(ok)toast(reloadReason+' · 当前 '+DATA.length+' 单 @ '+formatSyncTime(lastFetchTime));
+  else toast('⚠️ 加载线上数据失败，沿用已显示内容');
   btn.innerHTML=original;btn.disabled=false;
 }
-function startAutoPoll(ms){if(autoPoller)clearInterval(autoPoller);autoPoller=setInterval(loadAndRender,ms);}
+function startAutoPoll(ms){if(autoPoller)clearInterval(autoPoller);autoPoller=setInterval(()=>loadAndRender(true),ms);}
 function formatSyncTime(iso){
   if(!iso)return '—';const d=new Date(iso);
   if(isNaN(d.getTime())){const s=String(iso);return s.length>=19?s.slice(0,19).replace('T',' '):s;}
