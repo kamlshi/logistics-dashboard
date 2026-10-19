@@ -647,10 +647,10 @@ $('#copyJson').addEventListener('click',()=>{if(!curRow)return;navigator.clipboa
   if(!body||!fp)return;
   let curFld=null;
   const fv=v=>(v==null||v==='')?'<span style="color:var(--muted)">（空字段）</span>':esc(v);
-  function isMoney(l){return l.indexOf('单价')>=0||l.indexOf('总价')>=0;}
-  function isNum(l){return ['柜量','件数','数量','净重','毛重'].some(k=>l.indexOf(k)>=0);}
+  function isMoney(l){return l!=null&&(String(l).indexOf('单价')>=0||String(l).indexOf('总价')>=0);}
+  function isNum(l){return l!=null&&['柜量','件数','数量','净重','毛重'].some(k=>String(l).indexOf(k)>=0);}
   function show(d){
-    const mono=(isMoney(d.label)||isNum(d.label))?' mono':'';
+    const mono=(isMoney(d.label)||isNum(d.label)||isMoney(d.key)||isNum(d.key))?' mono':'';
     fp.innerHTML=
       '<div class="fp-grp">'+esc(d.grp||'明细')+'</div>'+
       '<div class="fp-label">'+esc(d.label)+(d.key?'<span class="fp-key">'+esc(d.key)+'</span>':'')+'</div>'+
