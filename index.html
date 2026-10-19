@@ -206,7 +206,6 @@ html[data-spot="off"] .content.spot .card{opacity:1;filter:none;transform:none}
 .modal .grp{margin-bottom:14px}
 .modal .grp h4{margin:0 0 8px;font-size:12px;color:var(--accent);font-weight:700;letter-spacing:.4px;
   display:flex;align-items:center}
-.modal .group-count{font-size:10px;color:var(--muted);font-weight:500;margin-left:6px}
 .modal .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px}
 .modal .fld{display:flex;flex-direction:column;gap:2px;padding:7px 9px;border-radius:9px;background:var(--panel-2);cursor:pointer;
   transition:border-color .3s var(--ease-out),box-shadow .3s var(--ease-out),background .2s var(--ease-out),transform .36s var(--ease-back),opacity .3s var(--ease-out),filter .3s var(--ease-out)}
@@ -593,7 +592,7 @@ function openModal(id){
     const items=groupMap[g];if(!items||!items.length)return;
     const shown=items.filter(f=>showEmpty||(f.val!=null&&f.val!==''));if(!shown.length)return;
     const div=document.createElement('div');div.className='grp';
-    div.innerHTML='<h4>'+esc(g)+'<span class="group-count">'+shown.length+'/'+items.length+' 有值</span></h4><div class="grid">'+
+    div.innerHTML='<h4>'+esc(g)+'</h4><div class="grid">'+
       shown.map(f=>'<div class="fld '+(f.val==null||f.val===''?'empty':'')+'" data-grp="'+esc(g)+'" data-label="'+esc(f.label)+'" data-key="'+esc(f.key||'')+'" data-value="'+esc(f.val==null?'':f.val)+'"><span class="k">'+esc(f.label)+'</span><span class="v">'+valHtml(f.label,f.val)+'</span></div>').join('')+
       '</div>';
     body.appendChild(div);
