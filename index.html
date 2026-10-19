@@ -7,13 +7,13 @@
 <style>
 /* ===================== 设计令牌（低饱和 · 商务 · 含明暗两套） ===================== */
 :root{
-  --bg:#f3f5f9; --panel:#ffffff; --panel-2:#f7f9fc;
-  --text:#1c2430; --muted:#6c7888; --line:#e7ecf3;
-  --primary:#3a5ca8; --primary-soft:#eaf0fa; --primary-soft-2:#d4e0f4;
-  --accent:#c2723d; --accent-soft:#f6ece3;           /* 绿动/JAYSON 品牌橙（去饱和） */
-  --up:#c0504d; --down:#2e8b6f; --warn:#d9933a; --info:#3a5ca8;
+  --bg:#f8fafc; --panel:#ffffff; --panel-2:#f7f9fc;
+  --text:#1e293b; --muted:#64748b; --line:rgba(203,213,225,0.6);
+  --primary:#2563eb; --primary-soft:#eff4ff; --primary-soft-2:#dbe7ff;
+  --accent:#ea580c; --accent-soft:#fdeee3;           /* 绿动/JAYSON 品牌橙 */
+  --up:#dc2626; --down:#10b981; --warn:#d97706; --info:#2563eb;
   /* 状态语义色 */
-  --st-arrived:#d9933a; --st-shipped:#3a5ca8; --st-delivered:#2e8b6f;
+  --st-arrived:#f59e0b; --st-shipped:#3b82f6; --st-delivered:#10b981;
   --shadow-s:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.04);
   --shadow-m:0 4px 12px rgba(16,24,40,.08),0 1px 3px rgba(16,24,40,.04);
   --shadow-l:0 24px 48px rgba(16,24,40,.12);
@@ -24,10 +24,10 @@
 }
 html[data-theme="dark"]{
   --bg:#0f141d; --panel:#161d28; --panel-2:#1b2330;
-  --text:#e6ecf5; --muted:#8a96a8; --line:#232c3a;
-  --primary:#6f93d8; --primary-soft:#16223a; --primary-soft-2:#23365c;
-  --accent:#d68a52; --accent-soft:#2a2018;
-  --st-arrived:#e0a85a; --st-shipped:#6f93d8; --st-delivered:#3fae85;
+  --text:#e6ecf5; --muted:#94a3b8; --line:#233044;
+  --primary:#4f86f7; --primary-soft:#13233f; --primary-soft-2:#1e3a66;
+  --accent:#f0822e; --accent-soft:#3a2410;
+  --st-arrived:#f0b04a; --st-shipped:#5b8def; --st-delivered:#2fcf9b;
   --shadow-s:0 1px 2px rgba(0,0,0,.4);
   --shadow-m:0 4px 14px rgba(0,0,0,.45);
   --shadow-l:0 24px 48px rgba(0,0,0,.55);
@@ -51,7 +51,7 @@ body.unlocked .gate{opacity:0;pointer-events:none}
   border-radius:var(--r-l);box-shadow:var(--shadow-l);padding:30px 28px;text-align:center}
 .gate-logo{width:54px;height:54px;border-radius:16px;margin:0 auto 14px;display:flex;align-items:center;
   justify-content:center;color:#fff;font-weight:700;font-size:24px;
-  background:linear-gradient(135deg,var(--accent),#a85c2c);box-shadow:var(--shadow-m)}
+  background:linear-gradient(135deg,var(--primary),#3b82f6);box-shadow:var(--shadow-m)}
 .gate-title{font-size:18px;font-weight:700;letter-spacing:.3px}
 .gate-sub{font-size:12px;color:var(--muted);margin-top:4px}
 .gate-divider{height:1px;background:var(--line);margin:20px 0}
@@ -70,7 +70,7 @@ body.unlocked .gate{opacity:0;pointer-events:none}
 .wrap{max-width:1280px;margin:0 auto;padding:18px 22px 48px}
 /* 顶栏 */
 .topbar{display:flex;align-items:center;gap:14px;padding:6px 2px 18px;flex-wrap:wrap}
-.logo{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--accent),#a85c2c);
+.logo{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--primary),#3b82f6);
   display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:19px;
   box-shadow:var(--shadow-m)}
 .brand h1{margin:0;font-size:18px;font-weight:700;letter-spacing:.3px}
@@ -607,7 +607,7 @@ async function loadAndRender(){
   if(ok){
     renderAll();
     const el=$('#syncTime');if(el)el.textContent=formatSyncTime(lastFetchTime);
-    if(dot)dot.style.background='#4ade80';
+    if(dot)dot.style.background='#10b981';
   }else{
     if(dot)dot.style.background='#f59e0b';
   }
