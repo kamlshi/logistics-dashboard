@@ -208,7 +208,8 @@ html[data-spot="off"] .content.spot .card{opacity:1;filter:none;transform:none}
   display:flex;align-items:center}
 .modal .group-count{font-size:10px;color:var(--muted);font-weight:500;margin-left:6px}
 .modal .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px}
-.modal .fld{display:flex;flex-direction:column;gap:2px;padding:7px 9px;border-radius:9px;background:var(--panel-2)}
+.modal .fld{display:flex;flex-direction:column;gap:2px;padding:7px 9px;border-radius:9px;background:var(--panel-2);cursor:pointer;
+  transition:border-color .3s var(--ease-out),box-shadow .3s var(--ease-out),background .2s var(--ease-out),transform .36s var(--ease-back),opacity .3s var(--ease-out),filter .3s var(--ease-out)}
 .modal .fld .k{font-size:10.5px;color:var(--muted)}
 .modal .fld .v{font-size:12.5px;word-break:break-all}
 .modal .fld.empty{opacity:.5}
@@ -258,6 +259,33 @@ html[data-spot="off"] .content.spot .card{opacity:1;filter:none;transform:none}
 .row-preview .rp-note{margin-top:9px;padding:7px 9px;border-radius:8px;background:color-mix(in srgb,var(--warn) 12%,transparent);color:var(--warn);font-size:11.5px;line-height:1.4}
 .row-preview .rp-note.alert{font-weight:600}
 .row-preview .rp-muted{color:var(--muted)}
+
+/* ===================== 物流明细弹窗 字段级 悬停聚光 + 细节浮层 ===================== */
+#modalBody.spot .fld{opacity:.5;filter:saturate(.45)}
+#modalBody.spot .fld.lit{opacity:1;filter:none;border-color:var(--primary-soft-2);position:relative;z-index:3;
+  box-shadow:0 14px 30px rgba(58,92,168,.18),0 0 0 1px var(--primary-soft-2);transform:scale(1.02) translateY(-2px)}
+#modalBody.spot .fld.lit::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:radial-gradient(170px circle at var(--mx,50%) var(--my,50%),color-mix(in srgb,var(--primary) 14%,transparent),transparent 62%)}
+html[data-spot="soft"] #modalBody.spot .fld{opacity:.72;filter:saturate(.7)}
+html[data-spot="soft"] #modalBody.spot .fld.lit{transform:scale(1.01) translateY(-1px)}
+html[data-spot="hard"] #modalBody.spot .fld{opacity:.3;filter:saturate(.2)}
+html[data-spot="hard"] #modalBody.spot .fld.lit{transform:scale(1.04) translateY(-3px)}
+html[data-spot="off"] #modalBody.spot .fld{opacity:1;filter:none;transform:none}
+html[data-spot="off"] #modalBody.spot .fld.lit{box-shadow:none;border-color:var(--primary-soft-2)}
+html[data-spot="off"] #modalBody.spot .fld.lit::before{display:none}
+
+.field-preview{position:fixed;z-index:56;width:262px;max-width:82vw;display:none;
+  background:color-mix(in srgb,var(--panel) 90%,transparent);backdrop-filter:blur(10px);
+  border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 40px rgba(16,24,40,.2);
+  padding:12px 13px;font-size:12px;pointer-events:none;animation:fpIn .16s var(--ease-out)}
+.field-preview.on{display:block}
+@keyframes fpIn{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:none}}
+.field-preview .fp-grp{font-size:10px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase}
+.field-preview .fp-label{font-family:var(--font-art);font-weight:700;font-size:13px;margin:3px 0 7px;display:flex;align-items:baseline;gap:7px}
+.field-preview .fp-key{font-family:var(--font-art-num);font-style:italic;font-size:10.5px;color:var(--muted);font-weight:500}
+.field-preview .fp-val{font-size:13px;line-height:1.5;word-break:break-all;background:var(--panel-2);padding:8px 10px;border-radius:9px}
+.field-preview .fp-val.mono{font-family:var(--font-art-num)}
+.field-preview .fp-hint{margin-top:8px;font-size:10.5px;color:var(--primary);display:flex;align-items:center;gap:5px}
 </style>
 </head>
 <body>
@@ -377,6 +405,7 @@ html[data-spot="off"] .content.spot .card{opacity:1;filter:none;transform:none}
 
 <div class="toast-box" id="toastBox"></div>
 <div class="row-preview" id="rowPreview"></div>
+<div class="field-preview" id="fieldPreview"></div>
 
 <script>
 /* ============ 状态字典（中英文，覆盖全部同步状态） ============ */
@@ -460,7 +489,7 @@ document.addEventListener('mouseover',e=>{const el=e.target.closest('[data-peer]
   if(el.classList.contains('lit'))return;focusPeer(el);});
 document.addEventListener('mouseleave',clearPeers);
 // 强度档
-$$('[data-spot]').forEach(b=>b.addEventListener('click',()=>{b.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));b.classList.add('on');setSpot(b.dataset.spot);}));
+$$('[data-spot]').forEach(b=>b.addEventListener('click',()=>{b.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));b.classList.add('on');setSpot(b.dataset.spot);document.dispatchEvent(new Event('spotchange'));}));
 
 /* ============ 主题 ============ */
 try{const t=localStorage.getItem('zz.theme');if(t)document.documentElement.dataset.theme=t;}catch(e){}
@@ -555,9 +584,9 @@ function openModal(id){
   const others=[];
   const cols=(curRow.allCols&&curRow.allCols.length)?curRow.allCols:null;
   if(cols){
-    cols.forEach(c=>{const g=groupOf[c.key];const item={label:c.label,val:c.value};if(g)groupMap[g].push(item);else others.push(item);});
+    cols.forEach(c=>{const g=groupOf[c.key];const item={label:c.label,key:c.key,val:c.value};if(g)groupMap[g].push(item);else others.push(item);});
   }else{
-    GROUPS.forEach(([g,keys])=>keys.forEach(k=>{if(curRow[k]!=null&&curRow[k]!=='')groupMap[g].push({label:k,val:curRow[k]});}));
+    GROUPS.forEach(([g,keys])=>keys.forEach(k=>{if(curRow[k]!=null&&curRow[k]!=='')groupMap[g].push({label:k,key:k,val:curRow[k]});}));
   }
   others.forEach(it=>groupMap['其他'].push(it));
   GROUPS.forEach(([g])=>{
@@ -565,7 +594,7 @@ function openModal(id){
     const shown=items.filter(f=>showEmpty||(f.val!=null&&f.val!==''));if(!shown.length)return;
     const div=document.createElement('div');div.className='grp';
     div.innerHTML='<h4>'+esc(g)+'<span class="group-count">'+shown.length+'/'+items.length+' 有值</span></h4><div class="grid">'+
-      shown.map(f=>'<div class="fld '+(f.val==null||f.val===''?'empty':'')+'"><span class="k">'+esc(f.label)+'</span><span class="v">'+valHtml(f.label,f.val)+'</span></div>').join('')+
+      shown.map(f=>'<div class="fld '+(f.val==null||f.val===''?'empty':'')+'" data-grp="'+esc(g)+'" data-label="'+esc(f.label)+'" data-key="'+esc(f.key||'')+'" data-value="'+esc(f.val==null?'':f.val)+'"><span class="k">'+esc(f.label)+'</span><span class="v">'+valHtml(f.label,f.val)+'</span></div>').join('')+
       '</div>';
     body.appendChild(div);
   });
@@ -608,6 +637,60 @@ $('#copyJson').addEventListener('click',()=>{if(!curRow)return;navigator.clipboa
     const id=tr.dataset.id;if(id===curId)return;curId=id;const d=DATA.find(x=>x.id===id);if(!d)return;fill(d);prev.classList.add('on');place(e);});
   tb.addEventListener('mousemove',e=>{if(prev.classList.contains('on'))place(e);});
   tb.addEventListener('mouseleave',()=>{prev.classList.remove('on');curId=null;});
+})();
+
+/* ============ 物流明细弹窗内 字段悬停聚光 + 细节浮层 ============ */
+(function(){
+  const body=document.getElementById('modalBody');
+  const fp=document.getElementById('fieldPreview');
+  const mask=document.getElementById('modalMask');
+  if(!body||!fp)return;
+  let curFld=null;
+  const fv=v=>(v==null||v==='')?'<span style="color:var(--muted)">（空字段）</span>':esc(v);
+  function isMoney(l){return l.indexOf('单价')>=0||l.indexOf('总价')>=0;}
+  function isNum(l){return ['柜量','件数','数量','净重','毛重'].some(k=>l.indexOf(k)>=0);}
+  function show(d){
+    const mono=(isMoney(d.label)||isNum(d.label))?' mono':'';
+    fp.innerHTML=
+      '<div class="fp-grp">'+esc(d.grp||'明细')+'</div>'+
+      '<div class="fp-label">'+esc(d.label)+(d.key?'<span class="fp-key">'+esc(d.key)+'</span>':'')+'</div>'+
+      '<div class="fp-val'+mono+'">'+fv(d.value)+'</div>'+
+      '<div class="fp-hint">📋 点击字段即可复制</div>';
+  }
+  function place(e){const pad=14,w=fp.offsetWidth,h=fp.offsetHeight;
+    let x=e.clientX+pad,y=e.clientY+pad;
+    if(x+w>innerWidth-8)x=e.clientX-w-pad;
+    if(y+h>innerHeight-8)y=innerHeight-h-8;
+    if(y<8)y=8;if(x<8)x=8;
+    fp.style.left=x+'px';fp.style.top=y+'px';}
+  function cleanup(){if(curFld){curFld.classList.remove('lit');curFld=null;}body.classList.remove('spot');fp.classList.remove('on');}
+  body.addEventListener('mouseover',e=>{
+    const f=e.target.closest('.fld');if(!f)return;
+    if(S.spot!=='off')body.classList.add('spot');
+    if(f!==curFld){cleanup();curFld=f;
+      if(S.spot!=='off')f.classList.add('lit');
+      show({grp:f.dataset.grp,label:f.dataset.label,key:f.dataset.key,value:f.dataset.value});
+      fp.classList.add('on');}
+    place(e);
+  });
+  body.addEventListener('mousemove',e=>{
+    if(!curFld)return;
+    const r=curFld.getBoundingClientRect();
+    curFld.style.setProperty('--mx',((e.clientX-r.left)/r.width*100).toFixed(1)+'%');
+    curFld.style.setProperty('--my',((e.clientY-r.top)/r.height*100).toFixed(1)+'%');
+    if(fp.classList.contains('on'))place(e);
+  });
+  body.addEventListener('mouseleave',cleanup);
+  body.addEventListener('click',e=>{
+    const f=e.target.closest('.fld');if(!f)return;
+    const v=f.dataset.value;if(v==null||v===''){toast('该字段为空，无可复制内容');return;}
+    (navigator.clipboard?navigator.clipboard.writeText(v):Promise.reject())
+      .then(()=>toast('已复制：'+(f.dataset.label||'字段')))
+      .catch(()=>toast('复制失败，请手动选择'));
+  });
+  document.getElementById('modalClose').addEventListener('click',cleanup);
+  mask.addEventListener('click',e=>{if(e.target===mask)cleanup();});
+  document.addEventListener('spotchange',()=>{if(S.spot==='off')cleanup();});
 })();
 
 /* ============ 主渲染 ============ */
