@@ -52,24 +52,35 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
   background:radial-gradient(1200px 600px at 50% -10%,var(--primary-soft),var(--bg));
   backdrop-filter:blur(6px);transition:opacity .35s var(--ease-out)}
 body.unlocked .gate{opacity:0;pointer-events:none}
-.gate-card{width:min(380px,92vw);background:var(--panel);border:1px solid var(--line);
-  border-radius:var(--r-l);box-shadow:var(--shadow-l);padding:30px 28px;text-align:center}
-.gate-logo{width:54px;height:54px;border-radius:16px;margin:0 auto 14px;display:flex;align-items:center;
-  justify-content:center;color:#fff;font-weight:700;font-size:17px;letter-spacing:1px;
-  text-indent:1px;background:linear-gradient(120deg,var(--primary),var(--accent));box-shadow:var(--shadow-m)}
-.gate-title{font-size:18px;font-weight:700;letter-spacing:.3px}
-.gate-sub{font-size:12px;color:var(--muted);margin-top:4px}
-.gate-divider{height:1px;background:var(--line);margin:20px 0}
-.gate-hint{font-size:12px;color:var(--muted);margin-bottom:12px}
-.gate-row{display:flex;gap:8px}
-.gate-row input{flex:1;font-family:inherit;font-size:14px;padding:11px 13px;border-radius:11px;
+.gate-card{width:min(400px,92vw);background:var(--panel);border:1px solid var(--line);
+  border-radius:var(--r-l);box-shadow:var(--shadow-l);padding:38px 34px 32px;text-align:center;position:relative;overflow:hidden}
+.gate-card::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;
+  background:linear-gradient(90deg,var(--primary),var(--accent))}
+.gate-logo{width:60px;height:60px;border-radius:18px;margin:0 auto 16px;display:flex;align-items:center;
+  justify-content:center;color:#fff;font-weight:900;font-size:18px;letter-spacing:2px;text-indent:2px;
+  font-family:var(--font-art);background:linear-gradient(120deg,var(--primary),var(--accent));
+  box-shadow:0 10px 24px color-mix(in srgb,var(--primary) 30%,transparent)}
+.gate-title{font-family:var(--font-art);font-size:23px;font-weight:900;letter-spacing:1.5px;line-height:1.25;
+  background:linear-gradient(120deg,var(--primary),var(--accent));-webkit-background-clip:text;background-clip:text;color:transparent}
+.gate-sub{font-family:var(--font-art);font-size:12.5px;color:var(--muted);margin-top:7px;letter-spacing:2.5px}
+.gate-en{font-family:var(--font-art-num);font-style:italic;font-size:10px;color:var(--muted);
+  letter-spacing:3px;text-transform:uppercase;margin-top:5px;opacity:.85}
+.gate-divider{display:flex;align-items:center;gap:10px;margin:22px 0 18px}
+.gate-divider::before,.gate-divider::after{content:"";flex:1;height:1px;background:var(--line)}
+.gate-divider .dm{width:6px;height:6px;transform:rotate(45deg);flex:none;
+  background:linear-gradient(135deg,var(--primary),var(--accent));border-radius:1.5px}
+.gate-hint{font-family:var(--font-art);font-size:12.5px;color:var(--muted);margin-bottom:14px;letter-spacing:.8px}
+.gate-row{display:flex;gap:9px}
+.gate-row input{flex:1;font-family:var(--font-art-num);font-size:15px;letter-spacing:2px;padding:12px 14px;border-radius:12px;
   border:1px solid var(--line);background:var(--panel-2);color:var(--text);outline:none;transition:.2s}
+.gate-row input::placeholder{font-family:var(--font-art);font-size:12.5px;letter-spacing:1px;color:var(--muted)}
 .gate-row input:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}
-.gate-row button{padding:11px 20px;border-radius:11px;background:var(--primary);color:#fff;
-  font-size:14px;font-weight:600;box-shadow:var(--shadow-s);transition:.2s}
-.gate-row button:hover{filter:brightness(1.05)}
-.gate-row button:disabled{opacity:.6;cursor:default}
-.gate-error{color:var(--up);font-size:12px;margin-top:10px;min-height:16px}
+.gate-row button{padding:12px 24px;border-radius:12px;background:linear-gradient(120deg,var(--primary),var(--accent));
+  color:#fff;font-family:var(--font-art);font-size:14.5px;font-weight:700;letter-spacing:4px;text-indent:4px;
+  box-shadow:0 6px 16px color-mix(in srgb,var(--primary) 28%,transparent);transition:.2s}
+.gate-row button:hover{filter:brightness(1.06);transform:translateY(-1px)}
+.gate-row button:disabled{opacity:.6;cursor:default;transform:none}
+.gate-error{color:var(--up);font-size:12px;margin-top:10px;min-height:16px;font-family:var(--font-art);letter-spacing:.5px}
 
 /* ===================== 布局 ===================== */
 .wrap{max-width:1280px;margin:0 auto;padding:18px 22px 48px}
@@ -304,7 +315,8 @@ html[data-spot="off"] #modalBody.spot .fld.lit::before{display:none}
     <div class="gate-logo">绿动</div>
     <div class="gate-title">绿动业务物流进度</div>
     <div class="gate-sub">锦源晟绿动实时供应链追踪</div>
-    <div class="gate-divider"></div>
+    <div class="gate-en">Real-time Supply Chain Tracking</div>
+    <div class="gate-divider"><span class="dm"></span></div>
     <div class="gate-hint">请输入访问密码以查看实时供应链进度</div>
     <div class="gate-row">
       <input type="password" id="gatePassword" placeholder="访问密码" autocomplete="off" />
