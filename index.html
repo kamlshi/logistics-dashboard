@@ -4,6 +4,9 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>绿动业务物流进度</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;700;900&family=Playfair+Display:wght@600;700;900&display=swap" rel="stylesheet">
 <style>
 /* ===================== 设计令牌（低饱和 · 商务 · 含明暗两套） ===================== */
 :root{
@@ -21,6 +24,8 @@
   --ease-out:cubic-bezier(.22,1,.36,1);
   --ease-back:cubic-bezier(.34,1.56,.64,1);
   --t-theme:.32s var(--ease-out);
+  --font-art:"Noto Serif SC","Songti SC","STSong",serif;
+  --font-art-num:"Playfair Display","Noto Serif SC",Georgia,serif;
 }
 html[data-theme="dark"]{
   --bg:#0f141d; --panel:#161d28; --panel-2:#1b2330;
@@ -220,6 +225,39 @@ html[data-spot="off"] .content.spot .card{opacity:1;filter:none;transform:none}
 
 @media(max-width:1080px){.stats{grid-template-columns:repeat(2,1fr)}.mid{grid-template-columns:1fr}}
 @media(max-width:560px){.stats{grid-template-columns:1fr}.donut-wrap{flex-direction:column}}
+
+/* ===================== 艺术字体 / 区块标题 ===================== */
+.brand h1{font-family:var(--font-art);font-size:21px;font-weight:900;letter-spacing:.5px;
+  background:linear-gradient(120deg,var(--primary),var(--accent));-webkit-background-clip:text;background-clip:text;color:transparent}
+.brand p{font-family:var(--font-art-num);font-style:italic}
+.chartcard h3{font-family:var(--font-art);font-weight:700;letter-spacing:.4px}
+.stat .val{font-family:var(--font-art-num);font-weight:900;letter-spacing:0}
+.stat .sub{font-family:var(--font-art-num);font-style:italic;letter-spacing:.4px;text-transform:uppercase}
+.modal-head h2{font-family:var(--font-art);font-weight:700}
+.section-title{display:flex;align-items:baseline;gap:10px;margin:4px 2px 12px;padding-left:11px;position:relative}
+.section-title::before{content:"";position:absolute;left:0;top:2px;bottom:2px;width:4px;border-radius:3px;
+  background:linear-gradient(180deg,var(--primary),var(--accent))}
+.section-title span{font-family:var(--font-art);font-size:16px;font-weight:700;color:var(--text)}
+.section-title em{font-family:var(--font-art-num);font-style:italic;font-size:12px;color:var(--muted);letter-spacing:1px}
+
+/* ===================== 物流明细 hover 浮层 ===================== */
+.row-preview{position:fixed;z-index:55;width:300px;max-width:84vw;display:none;
+  background:color-mix(in srgb,var(--panel) 88%,transparent);backdrop-filter:blur(10px);
+  border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 40px rgba(16,24,40,.18);
+  padding:13px 14px;font-size:12px;pointer-events:none;animation:rpIn .16s var(--ease-out)}
+.row-preview.on{display:block}
+@keyframes rpIn{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:none}}
+.row-preview .rp-head{font-family:var(--font-art-num);font-weight:700;font-size:13.5px;display:flex;align-items:center;gap:8px;justify-content:space-between}
+.row-preview .rp-route{margin-top:5px;color:var(--muted);font-size:12px}
+.row-preview .rp-route .arr{color:var(--primary);margin:0 4px}
+.row-preview .rp-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin-top:9px}
+.row-preview .rp-item{display:flex;flex-direction:column;gap:1px}
+.row-preview .rp-k{font-size:10px;color:var(--muted)}
+.row-preview .rp-v{font-size:12.5px;word-break:break-all}
+.row-preview .rp-v.mono{font-family:var(--font-art-num)}
+.row-preview .rp-note{margin-top:9px;padding:7px 9px;border-radius:8px;background:color-mix(in srgb,var(--warn) 12%,transparent);color:var(--warn);font-size:11.5px;line-height:1.4}
+.row-preview .rp-note.alert{font-weight:600}
+.row-preview .rp-muted{color:var(--muted)}
 </style>
 </head>
 <body>
@@ -264,6 +302,7 @@ html[data-spot="off"] .content.spot .card{opacity:1;filter:none;transform:none}
 
   <!-- 核心概览 -->
   <div class="content" id="content">
+    <div class="section-title"><span>核心概览</span><em>Overview</em></div>
     <div class="stats" id="stats">
       <div class="card stat blue"><div class="ico">📦</div><div class="lbl">全部订单</div><div class="val" id="statTotal">0</div><div class="sub">Total Orders</div><div class="amt" id="statTotalAmt">合计 —</div></div>
       <div class="card stat arrived"><div class="ico">⚓</div><div class="lbl">已到港</div><div class="val" id="statArrived">0</div><div class="sub">Arrived</div><div class="amt" id="statArrivedAmt">合计 —</div></div>
@@ -273,6 +312,7 @@ html[data-spot="off"] .content.spot .card{opacity:1;filter:none;transform:none}
   </div>
 
   <!-- 中部环形图 -->
+  <div class="section-title"><span>状态分析</span><em>Analytics</em></div>
   <div class="mid" id="content2">
     <div class="card chartcard">
       <h3>物流状态分布</h3>
@@ -299,6 +339,7 @@ html[data-spot="off"] .content.spot .card{opacity:1;filter:none;transform:none}
   </div>
 
   <!-- 表格 -->
+  <div class="section-title"><span>物流明细</span><em>Details</em></div>
   <div class="card tablecard" data-peers id="tableCard">
     <div class="tbar">
       <div class="seg" id="statusSeg">
@@ -335,6 +376,7 @@ html[data-spot="off"] .content.spot .card{opacity:1;filter:none;transform:none}
 </div>
 
 <div class="toast-box" id="toastBox"></div>
+<div class="row-preview" id="rowPreview"></div>
 
 <script>
 /* ============ 状态字典（中英文，覆盖全部同步状态） ============ */
@@ -533,6 +575,40 @@ $('#modalClose').addEventListener('click',()=>$('#modalMask').classList.remove('
 $('#modalMask').addEventListener('click',e=>{if(e.target===$('#modalMask'))$('#modalMask').classList.remove('on');});
 $('#toggleEmpty').addEventListener('click',function(){showEmpty=!showEmpty;this.classList.toggle('on',showEmpty);if(curRow)openModal(curRow.id);});
 $('#copyJson').addEventListener('click',()=>{if(!curRow)return;navigator.clipboard.writeText(JSON.stringify(curRow,null,2));toast('已复制行 JSON');});
+
+/* ============ 物流明细 hover 浮层（聚光 + 细节显示） ============ */
+(function(){
+  const prev=document.getElementById('rowPreview');const tb=document.getElementById('tableBody');
+  if(!prev||!tb)return;let curId=null;
+  const ev=v=>(v==null||v==='')?'<span class="rp-muted">—</span>':esc(v);
+  function pair(k,v,mono){return '<div class="rp-item"><span class="rp-k">'+k+'</span><span class="rp-v'+(mono?' mono':'')+'">'+v+'</span></div>';}
+  function fill(d){
+    const cn=(d.containerNo||'').split(/\s+/).filter(Boolean).join('<br>');
+    prev.innerHTML=
+      '<div class="rp-head"><span>'+ev(d.contractNo)+'</span>'+badge(d.status)+'</div>'+
+      '<div class="rp-route">'+ev(d.shipper)+' <span class="arr">➜</span> '+ev(d.destination)+'</div>'+
+      '<div class="rp-grid">'+
+        pair('柜号',cn||'—',true)+
+        pair('提单号',ev(d.blNo),true)+
+        pair('承运商',ev(d.carrier))+
+        pair('柜型/柜量',ev((d.containerType||'—')+' / '+(d.containerCount!=null?d.containerCount:'—')))+
+        pair('毛重/净重',ev((d.grossWeight||'—')+' / '+(d.netWeight||'—')))+
+        pair('ETA',ev(d.etaDest),true)+
+        pair('金额',fmtMoney(d.totalPrice),true)+
+        pair('放行',ev(d.actualRelease||d.releaseTime))+
+      '</div>'+
+      (d.notes?'<div class="rp-note'+(String(d.notes).includes('预警')?' alert':'')+'">⚠ '+esc(d.notes)+'</div>':'');
+  }
+  function place(e){const pad=18,w=prev.offsetWidth,h=prev.offsetHeight;
+    let x=e.clientX+pad,y=e.clientY+pad;
+    if(x+w>innerWidth-8)x=e.clientX-w-pad;
+    if(y+h>innerHeight-8)y=innerHeight-h-8;
+    if(y<8)y=8;prev.style.left=x+'px';prev.style.top=y+'px';}
+  tb.addEventListener('mouseover',e=>{const tr=e.target.closest('tr[data-id]');if(!tr)return;
+    const id=tr.dataset.id;if(id===curId)return;curId=id;const d=DATA.find(x=>x.id===id);if(!d)return;fill(d);prev.classList.add('on');place(e);});
+  tb.addEventListener('mousemove',e=>{if(prev.classList.contains('on'))place(e);});
+  tb.addEventListener('mouseleave',()=>{prev.classList.remove('on');curId=null;});
+})();
 
 /* ============ 主渲染 ============ */
 function renderAll(){
