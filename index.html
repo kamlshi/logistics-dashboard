@@ -100,7 +100,7 @@ body.unlocked .gate{opacity:0;pointer-events:none}
   border-radius:10px;padding:3px;box-shadow:var(--shadow-s)}
 .chips .chip{padding:5px 11px;border-radius:8px;font-size:11.5px;color:var(--muted);transition:.2s}
 .chips .chip.on{background:var(--primary-soft);color:var(--primary);font-weight:600}
-.syncinfo{font-size:11.5px;color:var(--muted)}
+.syncinfo{font-size:11.5px;color:var(--muted);font-family:var(--font-art-num);font-variant-numeric:tabular-nums}
 .syncinfo b{color:var(--text);font-weight:600}
 .live-tag{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:999px;font-size:10px;
   font-family:var(--font-art-num);letter-spacing:.6px;vertical-align:middle;white-space:nowrap}
@@ -122,7 +122,7 @@ body.unlocked .gate{opacity:0;pointer-events:none}
 .stat .val{font-size:30px;font-weight:700;letter-spacing:-.5px;line-height:1.1;margin-top:2px;
   font-variant-numeric:tabular-nums}
 .stat .sub{font-size:11px;color:var(--muted);margin-top:3px}
-.stat .amt{font-size:12.5px;font-weight:600;margin-top:8px;color:var(--text)}
+.stat .amt{font-family:var(--font-art-num);font-variant-numeric:tabular-nums;font-size:13px;font-weight:700;margin-top:8px;color:var(--text)}
 .stat.blue .ico{background:var(--primary-soft);color:var(--primary)}
 .stat.arrived .ico{background:color-mix(in srgb,var(--st-arrived) 16%,transparent);color:var(--st-arrived)}
 .stat.shipped .ico{background:var(--primary-soft);color:var(--primary)}
@@ -571,7 +571,7 @@ function renderTable(){
     return true;
   });
   const tb=$('#tableBody');
-  if(!rows.length){tb.innerHTML=`<tr><td colspan="12"><div style="padding:30px;text-align:center;color:var(--muted)">📭 暂无匹配记录</div></td></tr>`;$('#tableInfo').textContent='显示 0 条';return;}
+  if(!rows.length){tb.innerHTML=`<tr><td colspan="12"><div style="padding:30px;text-align:center;color:var(--muted)">📭 暂无匹配记录</div></td></tr>`;$('#tableInfo').innerHTML='显示 <span class="mono">0</span> 条';return;}
   tb.innerHTML=rows.map((d,i)=>{
     const note=d.notes?`<span class="note-inline ${String(d.notes).includes('预警')?'alert':''}">${esc(d.notes)}</span>`:'<span style="color:var(--muted)">·</span>';
     return `<tr data-peer data-id="${esc(d.id)}" style="animation:cardIn .4s var(--ease-out) both;animation-delay:${i*40}ms">
@@ -590,8 +590,8 @@ function renderTable(){
     </tr>`;
   }).join('');
   const amt=rows.reduce((s,d)=>s+(Number(d.totalPrice)||0),0);
-  tb.innerHTML+=`<tr class="sumrow"><td colspan="10" style="text-align:right;color:var(--muted);font-size:12px">合计</td><td style="color:var(--muted)">${rows.length} 条</td><td><span class="mono" style="color:var(--primary);font-weight:600">${fmtMoney(amt)}</span></td></tr>`;
-  $('#tableInfo').textContent=`显示 ${rows.length} 条记录`;
+  tb.innerHTML+=`<tr class="sumrow"><td colspan="10" style="text-align:right;color:var(--muted);font-size:12px">合计</td><td style="color:var(--muted)"><span class="mono">${rows.length}</span> 条</td><td><span class="mono" style="color:var(--primary);font-weight:600">${fmtMoney(amt)}</span></td></tr>`;
+  $('#tableInfo').innerHTML=`显示 <span class="mono">${rows.length}</span> 条记录`;
 }
 
 /* ============ 弹窗（优先用 allCols 真实明细，key 分组） ============ */
