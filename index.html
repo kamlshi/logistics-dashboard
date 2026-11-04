@@ -102,6 +102,10 @@ body.unlocked .gate{opacity:0;pointer-events:none}
 .chips .chip.on{background:var(--primary-soft);color:var(--primary);font-weight:600}
 .syncinfo{font-size:11.5px;color:var(--muted)}
 .syncinfo b{color:var(--text);font-weight:600}
+.live-tag{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:999px;font-size:10px;
+  font-family:var(--font-art-num);letter-spacing:.6px;vertical-align:middle;white-space:nowrap}
+.live-tag.realtime{color:#0f9d6e;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.3)}
+.live-tag.static{color:var(--muted);background:var(--panel-2);border:1px solid var(--line)}
 .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#f59e0b;margin-left:4px;vertical-align:middle}
 
 /* 卡片基础 */
@@ -338,7 +342,7 @@ html[data-spot="off"] #modalBody.spot .fld.lit::before{display:none}
       <p>锦源晟绿动实时供应链追踪</p>
     </div>
     <div class="spacer"></div>
-    <div class="syncinfo">数据同步：<b id="syncTime">—</b><span class="dot" id="syncDot"></span></div>
+    <div class="syncinfo">数据同步：<b id="syncTime">—</b><span class="dot" id="syncDot"></span><span class="live-tag static" id="liveTag">静态</span></div>
     <div class="syncinfo" id="currentDate"></div>
     <button class="toolbtn" id="refreshBtn">⟳ 刷新</button>
     <button class="toolbtn" id="themeBtn">🌙 深色</button>
@@ -457,7 +461,12 @@ let DATA=[];               // 解密后的真实行（来自腾讯文档同步�
 let sessionPassword='';    // 仅存内存，刷新即失效
 let lastFetchTime='';
 let autoPoller=null;
-const DATA_URL='https://kamlshi.github.io/logistics-dashboard/data.json';
+/* 本机实时入口（服务托管）与公网入口自适应：
+   - 本机 127.0.0.1:8765 打开时，数据/同步都走同源，秒级实时、无跨网限制
+   - 公网 GitHub Pages 打开时，优先尝试连本机服务，连不上则退回静态 data.json */
+const IS_LOCAL=(location.hostname==='127.0.0.1'||location.hostname==='localhost')&&location.port==='8765';
+const DATA_URL=IS_LOCAL?'./data.json':'https://kamlshi.github.io/logistics-dashboard/data.json';
+const SYNC_URL=IS_LOCAL?'./sync':'http://127.0.0.1:8765/sync';
 
 /* ---- 解密（PBKDF2-SHA256 + AES-256-GCM，与 sync.py 互通） ---- */
 function b64ToBytes(b64){const bin=atob(b64);const bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);return bytes;}
@@ -769,42 +778,58 @@ function setupPasswordGate(){
 }
 
 /* ============ 同步 / 刷新 ============ */
+/* 关键：服务直接回传最新加密数据，页面本地解密后立即渲染，
+   不经过 GitHub Pages CDN，因此点刷新 = 秒级看到腾讯文档最新内容。 */
 async function triggerSync(){
-  const ctrl=new AbortController();const t=setTimeout(()=>ctrl.abort(),5000);
+  const ctrl=new AbortController();const t=setTimeout(()=>ctrl.abort(),30000);
   try{
-    const resp=await fetch('http://127.0.0.1:8765/sync',{mode:'cors',cache:'no-store',signal:ctrl.signal});
+    const resp=await fetch(SYNC_URL,{mode:'cors',cache:'no-store',signal:ctrl.signal});
     clearTimeout(t);
     if(!resp.ok){let msg='同步服务返回错误';try{const j=await resp.json();msg=j.message||msg;}catch(e){}return {ok:false,message:msg};}
     const j=await resp.json();
-    if(j&&j.ok)return {ok:true,rowCount:j.rowCount,lastUpdated:j.lastUpdated,message:j.message};
+    if(j&&j.ok)return {ok:true,rowCount:j.rowCount,lastUpdated:j.lastUpdated,
+                       envelope:j.envelope,changed:j.changed,push:j.push,message:j.message};
     return {ok:false,message:(j&&j.message)||'同步失败'};
-  }catch(e){clearTimeout(t);return {ok:false,offline:true,message:'本地同步服务未启动'};}
+  }catch(e){clearTimeout(t);return {ok:false,offline:true,message:'本机实时服务未启动'};}
+}
+function paintSyncTime(){
+  const el=$('#syncTime');if(el)el.textContent=formatSyncTime(lastFetchTime);
+  const dot=$('#syncDot');if(dot)dot.style.background='#10b981';
 }
 async function loadAndRender(silent){
   const ok=await fetchDataJSON();
   const dot=$('#syncDot');
-  if(ok){
-    renderAll();
-    const el=$('#syncTime');if(el)el.textContent=formatSyncTime(lastFetchTime);
-    if(dot)dot.style.background='#10b981';
-  }else{
-    if(dot)dot.style.background='#f59e0b';
-  }
-  if(!silent)toast(ok?'✅ 已加载线上最新数据（'+DATA.length+' 单）':'⚠️ 加载线上数据失败，沿用已显示内容');
+  if(ok){renderAll();paintSyncTime();}
+  else if(dot)dot.style.background='#f59e0b';
+  if(!silent)toast(ok?'✅ 已加载最新数据（'+DATA.length+' 单）':'⚠️ 加载数据失败，沿用已显示内容');
   return ok;
 }
 async function manualRefresh(){
   const btn=$('#refreshBtn');const original=btn.innerHTML;
   btn.innerHTML='<span class="spin">⟳</span> 同步中...';btn.disabled=true;
-  let reloadReason='';
-  const sync=await triggerSync();
-  if(sync.ok){reloadReason='✅ 已从腾讯文档同步最新数据（'+(sync.rowCount||0)+' 行）';}
-  else if(sync.offline){reloadReason='ⓘ 本机同步服务未运行，已重新拉取线上最新发布数据';}
-  else{reloadReason='⚠️ 本地同步失败：'+(sync.message||'')+'，已重新拉取线上数据';}
-  const ok=await loadAndRender(true);
-  if(ok)toast(reloadReason+' · 当前 '+DATA.length+' 单 @ '+formatSyncTime(lastFetchTime));
-  else toast('⚠️ 加载线上数据失败，沿用已显示内容');
-  btn.innerHTML=original;btn.disabled=false;
+  try{
+    const sync=await triggerSync();
+    /* 实时通道：用服务回传的最新数据直接渲染 */
+    if(sync.ok&&sync.envelope&&sessionPassword){
+      try{
+        const plain=await decryptData(sync.envelope,sessionPassword);
+        DATA=plain.rows||[];
+        lastFetchTime=plain.lastUpdated||new Date().toISOString();
+        renderAll();paintSyncTime();markRealtime();
+        const pushTip=sync.changed?' · 数据有变，后台同步上线中':' · 数据无变化';
+        toast('✅ 实时更新完成：腾讯文档 '+DATA.length+' 单'+pushTip);
+        return;
+      }catch(e){/* 解密失败则回退到静态数据 */}
+    }
+    /* 回退：本机服务未启动 / 取数失败 -> 重新拉已发布数据 */
+    markStatic();
+    const ok=await loadAndRender(true);
+    const why=sync.offline?'本机实时服务未启动，已加载已发布数据'
+             :(sync.ok?'实时数据解密失败，已加载已发布数据':'取数失败：'+(sync.message||'')+'，已加载已发布数据');
+    toast((ok?'ⓘ ':'⚠️ ')+why+(ok?' · 当前 '+DATA.length+' 单':''));
+  }finally{
+    btn.innerHTML=original;btn.disabled=false;
+  }
 }
 function startAutoPoll(ms){if(autoPoller)clearInterval(autoPoller);autoPoller=setInterval(()=>loadAndRender(true),ms);}
 function formatSyncTime(iso){
@@ -813,7 +838,20 @@ function formatSyncTime(iso){
   const p=n=>String(n).padStart(2,'0');
   return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
 }
-function initDate(){const el=$('#currentDate');if(el)el.textContent=new Date().toLocaleDateString('zh-CN',{weekday:'long',year:'numeric',month:'long',day:'numeric'});}
+function markRealtime(){const el=$('#liveTag');if(!el)return;
+  el.textContent='⚡ 实时';el.className='live-tag realtime';
+  el.title='实时通道已连接：点刷新立即从腾讯文档取最新数据（不经 GitHub CDN）';}
+function markStatic(){const el=$('#liveTag');if(!el)return;
+  el.textContent='静态';el.className='live-tag static';
+  el.title='本机实时服务未启动；运行 tmp_cookies/open_live.bat 可启用秒级实时';}
+function probeLive(){
+  if(IS_LOCAL){markRealtime();return;}
+  const ctrl=new AbortController();const t=setTimeout(()=>ctrl.abort(),2500);
+  fetch('http://127.0.0.1:8765/health',{mode:'cors',cache:'no-store',signal:ctrl.signal})
+    .then(r=>{clearTimeout(t);r.ok?markRealtime():markStatic();})
+    .catch(()=>{clearTimeout(t);markStatic();});
+}
+function initDate(){const el=$('#currentDate');if(el)el.textContent=new Date().toLocaleDateString('zh-CN',{weekday:'long',year:'numeric',month:'long',day:'numeric'});probeLive();}
 
 /* ============ 启动 ============ */
 document.addEventListener('DOMContentLoaded',()=>{
