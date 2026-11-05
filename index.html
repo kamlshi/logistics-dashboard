@@ -6,7 +6,7 @@
 <title>绿动业务物流进度</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;700;900&family=Playfair+Display:wght@600;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Serif+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
 /* ===================== 设计令牌（低饱和 · 商务 · 含明暗两套） ===================== */
 :root{
@@ -25,7 +25,8 @@
   --ease-back:cubic-bezier(.34,1.56,.64,1);
   --t-theme:.32s var(--ease-out);
   --font-art:"Noto Serif SC","Songti SC","STSong",serif;
-  --font-art-num:"Playfair Display","Noto Serif SC",Georgia,serif;
+  --font-sans:"Inter","PingFang SC","Microsoft YaHei",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --font-art-num:"Inter","PingFang SC","Microsoft YaHei",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
 }
 html[data-theme="dark"]{
   --bg:#0f141d; --panel:#161d28; --panel-2:#1b2330;
@@ -40,7 +41,7 @@ html[data-theme="dark"]{
 *{box-sizing:border-box}
 body{
   margin:0; background:var(--bg); color:var(--text);
-  font-family:"PingFang SC","Microsoft YaHei","Helvetica Neue",Arial,sans-serif;
+  font-family:var(--font-sans);
   font-size:13px; -webkit-font-smoothing:antialiased;
   transition:background var(--t-theme),color var(--t-theme);
 }
@@ -69,18 +70,18 @@ body.unlocked .gate{opacity:0;pointer-events:none}
 .gate-divider::before,.gate-divider::after{content:"";flex:1;height:1px;background:var(--line)}
 .gate-divider .dm{width:6px;height:6px;transform:rotate(45deg);flex:none;
   background:linear-gradient(135deg,var(--primary),var(--accent));border-radius:1.5px}
-.gate-hint{font-family:var(--font-art);font-size:12.5px;color:var(--muted);margin-bottom:14px;letter-spacing:.8px}
+.gate-hint{font-family:var(--font-sans);font-size:12.5px;color:var(--muted);margin-bottom:14px;letter-spacing:.8px}
 .gate-row{display:flex;gap:9px}
 .gate-row input{flex:1;font-family:var(--font-art-num);font-size:15px;letter-spacing:2px;padding:12px 14px;border-radius:12px;
   border:1px solid var(--line);background:var(--panel-2);color:var(--text);outline:none;transition:.2s}
-.gate-row input::placeholder{font-family:var(--font-art);font-size:12.5px;letter-spacing:1px;color:var(--muted)}
+.gate-row input::placeholder{font-family:var(--font-sans);font-size:12.5px;letter-spacing:1px;color:var(--muted)}
 .gate-row input:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}
 .gate-row button{padding:12px 24px;border-radius:12px;background:linear-gradient(120deg,var(--primary),var(--accent));
-  color:#fff;font-family:var(--font-art);font-size:14.5px;font-weight:700;letter-spacing:4px;text-indent:4px;
+  color:#fff;font-family:var(--font-sans);font-size:14.5px;font-weight:700;letter-spacing:4px;text-indent:4px;
   box-shadow:0 6px 16px color-mix(in srgb,var(--primary) 28%,transparent);transition:.2s}
 .gate-row button:hover{filter:brightness(1.06);transform:translateY(-1px)}
 .gate-row button:disabled{opacity:.6;cursor:default;transform:none}
-.gate-error{color:var(--up);font-size:12px;margin-top:10px;min-height:16px;font-family:var(--font-art);letter-spacing:.5px}
+.gate-error{color:var(--up);font-size:12px;margin-top:10px;min-height:16px;font-family:var(--font-sans);letter-spacing:.5px}
 
 /* ===================== 布局 ===================== */
 .wrap{max-width:1280px;margin:0 auto;padding:18px 22px 48px}
@@ -165,7 +166,7 @@ thead th{text-align:left;font-size:11px;color:var(--muted);font-weight:600;paddi
 tbody tr{border-bottom:1px solid var(--line);cursor:pointer;transition:background .2s var(--ease-out),transform .36s var(--ease-back),opacity .3s var(--ease-out),filter .3s var(--ease-out)}
 [data-peers].spot tbody tr[data-peer]{opacity:.34;filter:saturate(.3)}
 [data-peers].spot tbody tr[data-peer].lit{opacity:1;filter:none;background:var(--primary-soft);transform:translateX(3px)}
-tbody td{padding:10px;font-size:13px;font-family:var(--font-art);vertical-align:middle}
+tbody td{padding:10px;font-size:13px;font-family:var(--font-sans);vertical-align:middle}
 tbody tr:hover{background:var(--panel-2)}
 tbody tr.has-alert{background:color-mix(in srgb,var(--warn) 9%,transparent)}
 .sumrow{background:var(--panel-2)!important;font-weight:700;cursor:default!important}
@@ -247,19 +248,19 @@ html[data-spot="off"] .content.spot .card{opacity:1;filter:none;transform:none}
 .brand h1{font-family:var(--font-art);font-size:21px;font-weight:900;letter-spacing:.5px;
   background:linear-gradient(120deg,var(--primary),var(--accent));-webkit-background-clip:text;background-clip:text;color:transparent}
 .brand p{font-family:var(--font-art);font-style:normal;letter-spacing:.4px}
-.chartcard h3{font-family:var(--font-art);font-size:15px;font-weight:900;letter-spacing:.8px}
-.chartcard .hint{font-family:var(--font-art);font-size:12px;font-weight:500;letter-spacing:.5px}
+.chartcard h3{font-family:var(--font-sans);font-size:15px;font-weight:800;letter-spacing:.2px}
+.chartcard .hint{font-family:var(--font-sans);font-size:12px;font-weight:500;letter-spacing:.5px}
 .donut-box .center .n{font-family:var(--font-art-num);font-weight:900;font-size:29px;letter-spacing:0}
-.donut-box .center .t{font-family:var(--font-art);font-size:11.5px;font-weight:500;letter-spacing:.6px}
-.legend .ln{font-family:var(--font-art);font-size:13px;letter-spacing:.3px}
+.donut-box .center .t{font-family:var(--font-sans);font-size:11.5px;font-weight:500;letter-spacing:.6px}
+.legend .ln{font-family:var(--font-sans);font-size:13px;letter-spacing:.3px}
 .legend .lv{font-family:var(--font-art-num);font-size:14px;font-weight:700}
-.tbar .seg button{font-family:var(--font-art);font-size:12.5px;letter-spacing:.4px}
-.tbar select,.tbar input{font-family:var(--font-art);font-size:12.5px}
-.tinfo{font-family:var(--font-art)}
-thead th{font-family:var(--font-art);font-size:11.5px;font-weight:700;letter-spacing:.8px}
+.tbar .seg button{font-family:var(--font-sans);font-size:12.5px;letter-spacing:.4px}
+.tbar select,.tbar input{font-family:var(--font-sans);font-size:12.5px}
+.tinfo{font-family:var(--font-sans)}
+thead th{font-family:var(--font-sans);font-size:11.5px;font-weight:700;letter-spacing:.8px}
 .stat .val{font-family:var(--font-art-num);font-weight:900;letter-spacing:0}
 .stat .sub{font-family:var(--font-art-num);font-style:italic;letter-spacing:.4px;text-transform:uppercase}
-.modal-head h2{font-family:var(--font-art);font-weight:700}
+.modal-head h2{font-family:var(--font-sans);font-weight:700}
 .section-title{display:flex;align-items:baseline;gap:10px;margin:4px 2px 12px;padding-left:11px;position:relative}
 .section-title::before{content:"";position:absolute;left:0;top:2px;bottom:2px;width:4px;border-radius:3px;
   background:linear-gradient(180deg,var(--primary),var(--accent))}
@@ -306,7 +307,7 @@ html[data-spot="off"] #modalBody.spot .fld.lit::before{display:none}
 .field-preview.on{display:block}
 @keyframes fpIn{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:none}}
 .field-preview .fp-grp{font-size:10px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase}
-.field-preview .fp-label{font-family:var(--font-art);font-weight:700;font-size:13px;margin:3px 0 7px;display:flex;align-items:baseline;gap:7px}
+.field-preview .fp-label{font-family:var(--font-sans);font-weight:700;font-size:13px;margin:3px 0 7px;display:flex;align-items:baseline;gap:7px}
 .field-preview .fp-key{font-family:var(--font-art-num);font-style:italic;font-size:10.5px;color:var(--muted);font-weight:500}
 .field-preview .fp-val{font-size:13px;line-height:1.5;word-break:break-all;background:var(--panel-2);padding:8px 10px;border-radius:9px}
 .field-preview .fp-val.mono{font-family:var(--font-art-num)}
