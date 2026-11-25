@@ -312,6 +312,39 @@ html[data-spot="off"] #modalBody.spot .fld.lit::before{display:none}
 .field-preview .fp-val{font-size:13px;line-height:1.5;word-break:break-all;background:var(--panel-2);padding:8px 10px;border-radius:9px}
 .field-preview .fp-val.mono{font-family:var(--font-art-num)}
 .field-preview .fp-hint{margin-top:8px;font-size:10.5px;color:var(--primary);display:flex;align-items:center;gap:5px}
+
+/* ===================== 船舶位置追踪版块（明细弹窗内） ===================== */
+.shiptrack{margin-bottom:16px;border:1px solid var(--primary-soft-2);border-radius:var(--r-m);overflow:hidden;
+  background:linear-gradient(135deg,var(--primary-soft),var(--panel) 66%);box-shadow:var(--shadow-s)}
+.st-head{display:flex;align-items:center;gap:9px;padding:11px 13px 8px}
+.st-head .ic{width:27px;height:27px;border-radius:9px;display:grid;place-items:center;font-size:14px;
+  background:linear-gradient(135deg,var(--primary),var(--accent));box-shadow:0 3px 10px rgba(58,92,168,.22)}
+.st-title{font-family:var(--font-sans);font-size:13px;font-weight:800;letter-spacing:.2px;flex:1}
+.st-title small{font-family:var(--font-art-num);font-style:italic;font-weight:500;color:var(--muted);font-size:10px;margin-left:6px;letter-spacing:.6px}
+.st-badge{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;background:var(--primary-soft-2);color:var(--primary)}
+.st-badge.transit{background:var(--accent-soft);color:var(--accent)}
+.st-map{padding:0 10px 2px}
+.st-map svg{width:100%;height:auto;display:block}
+.st-map .st-port{font-size:10.5px;fill:var(--text);font-family:var(--font-sans);font-weight:700}
+.st-map .st-sub{font-size:9px;fill:var(--muted);font-family:var(--font-sans)}
+.st-info{padding:2px 13px 9px}
+.st-name{font-family:var(--font-art-num);font-size:15px;font-weight:800;letter-spacing:.3px;
+  display:inline-flex;align-items:center;gap:7px;cursor:pointer;transition:color .2s}
+.st-name:hover{color:var(--primary)}
+.st-name .copy{font-family:var(--font-sans);font-size:9.5px;font-weight:500;color:var(--muted);
+  border:1px solid var(--line);border-radius:6px;padding:1px 5px}
+.st-meta{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.55}
+.st-meta b{color:var(--text);font-weight:600}
+.st-actions{display:flex;gap:8px;padding:0 13px 10px}
+.st-btn{font-family:var(--font-sans);font-size:12px;font-weight:700;padding:9px 11px;border-radius:10px;cursor:pointer;
+  transition:transform .2s var(--ease-out),box-shadow .2s var(--ease-out),opacity .2s;white-space:nowrap}
+.st-btn:disabled{opacity:.45;cursor:not-allowed}
+.st-btn.primary{flex:1;border:0;color:#fff;background:linear-gradient(135deg,var(--primary),var(--accent));
+  box-shadow:0 4px 12px color-mix(in srgb,var(--primary) 26%,transparent)}
+.st-btn.primary:not(:disabled):hover{transform:translateY(-1px);box-shadow:0 7px 18px color-mix(in srgb,var(--primary) 34%,transparent)}
+.st-btn.ghost{flex:0 0 auto;border:1px solid var(--primary-soft-2);background:var(--panel);color:var(--primary)}
+.st-tip{font-size:10px;color:var(--muted);padding:0 13px 11px;line-height:1.55}
+.st-empty{font-size:11.5px;color:var(--muted);padding:2px 13px 11px}
 </style>
 </head>
 <body>
@@ -447,6 +480,78 @@ const GROUPS=[
   ['结算与放行',['unitPrice','totalPrice','currency','releaseTime','actualRelease','receiptDate','releaseExec']],
   ['其他',['status','transportMode','notes']]
 ];
+
+/* ============ 船舶位置追踪（轻量版：航线示意 + 跳转船讯网查船名） ============ */
+const SHIPXY_HOME='https://www.shipxy.com/';
+/* 选择查询船名：有中转港时以「中转船名」为准，否则用主航次 vessel */
+function pickTrackVessel(row){
+  const val=k=>{const c=(row.allCols||[]).find(x=>x.key===k||x.label===k);return c&&c.value&&String(c.value).trim()!=='N/A'?String(c.value).trim():'';};
+  const hasTransit=val('transitPort')!=='';
+  const tv=val('transitVessel')||val('中转船名')||val('二程船名')||val('二程船');
+  if(hasTransit&&tv)return{name:tv,via:'中转港 '+val('transitPort'),source:'中转船'};
+  return{name:val('vessel'),via:hasTransit?'经 '+val('transitPort'):'直达',source:'主航次'};
+}
+/* SVG 航线节点示意：启运港 →（中转港）→ 目的港；纯示意非真实底图 */
+function routeSvg(row){
+  const clean=s=>s&&String(s).trim()!=='N/A'?String(s).trim():'';
+  const stops=[{n:clean(row.shipper),t:'启运港'},{n:clean(row.transitPort),t:'中转港'},{n:clean(row.destination),t:'目的港'}]
+    .filter(x=>x.n);
+  if(stops.length<2)return '';
+  const W=560,H=110,x0=62,x1=W-62,span=(x1-x0)/(stops.length-1),cy=52;
+  const pts=stops.map((s,i)=>({...s,x:x0+i*span}));
+  const pos=pts.map((p,i)=>`${i?'L':'M'}${p.x} ${cy}`).join(' ');
+  const nodes=pts.map((p,i)=>{
+    const col=i===0?'var(--primary)':(i===pts.length-1?'var(--accent)':'var(--warn)');
+    return `<circle cx="${p.x}" cy="${cy}" r="8" fill="var(--panel)" stroke="${col}" stroke-width="2.5"/>`+
+      `<circle cx="${p.x}" cy="${cy}" r="3" fill="${col}"/>`+
+      `<text x="${p.x}" y="${cy-16}" text-anchor="middle" class="st-sub">${esc(p.t)}</text>`+
+      `<text x="${p.x}" y="${cy+24}" text-anchor="middle" class="st-port">${esc(p.n)}</text>`;
+  }).join('');
+  const boatX=(pts[0].x+(pts.length>1?pts[1].x:x1))/2; // 放在首段中点，避免遮挡中转节点
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`+
+    `<path d="${pos}" fill="none" stroke="var(--primary-soft-2)" stroke-width="3" stroke-dasharray="1 7" stroke-linecap="round"/>`+
+    `<text x="${boatX}" y="${cy-14}" text-anchor="middle" font-size="15">🚢</text>`+nodes+`</svg>`;
+}
+function renderShipTrack(row){
+  const body=$('#modalBody');if(!body)return;
+  const v=pickTrackVessel(row);
+  const hasName=!!v.name;
+  const box=document.createElement('div');box.className='shiptrack';box.id='shipTrackBox';
+  const route=routeSvg(row);
+  box.innerHTML=
+    '<div class="st-head"><div class="ic">🚢</div><div class="st-title">船舶位置追踪<small>VESSEL TRACKING</small></div>'+
+      '<span class="st-badge'+(v.source!=='主航次'?' transit':'')+'">'+esc(v.source)+'</span></div>'+
+    (route?'<div class="st-map">'+route+'</div>':'')+
+    '<div class="st-info">'+
+      (hasName
+        ?'<div class="st-name" id="trackShipName" title="点击复制船名">'+esc(v.name)+'<span class="copy">复制</span></div>'+
+         '<div class="st-meta">查询船名（'+esc(v.source)+'）· '+esc(v.via)+'</div>'
+        :'<div class="st-empty">本单暂无可查询的船名（中转港 / 船名航次均为空）</div>')+
+    '</div>'+
+    '<div class="st-actions">'+
+      '<button class="st-btn primary" id="openShipxy"'+(hasName?'':' disabled')+'>在船讯网查看实时船位 ↗</button>'+
+      '<button class="st-btn ghost" id="copyShipName"'+(hasName?'':' disabled')+'>复制船名</button>'+
+    '</div>'+
+    '<div class="st-tip">点击后自动复制船名并打开船讯网，粘贴到搜索框即可查看实时地图位置。有中转港时已优先使用中转船名。</div>';
+  body.insertBefore(box,body.firstChild);
+  if(!hasName)return;
+  const copy=()=>copyText(v.name);
+  $('#trackShipName').addEventListener('click',()=>{copy();toast('船名已复制：'+v.name);});
+  $('#copyShipName').addEventListener('click',()=>{copy();toast('船名已复制：'+v.name);});
+  $('#openShipxy').addEventListener('click',()=>{
+    copy();
+    window.open(SHIPXY_HOME,'_blank','noopener');
+    toast('船名已复制，粘贴到船讯网搜索框：'+v.name);
+  });
+}
+function copyText(t){
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).catch(()=>fallbackCopy(t));}
+  else fallbackCopy(t);
+}
+function fallbackCopy(t){
+  const ta=document.createElement('textarea');ta.value=t;ta.style.position='fixed';ta.style.opacity='0';
+  document.body.appendChild(ta);ta.select();try{document.execCommand('copy');}catch(e){}document.body.removeChild(ta);
+}
 
 /* ============ 工具 ============ */
 const $=s=>document.querySelector(s);
@@ -609,6 +714,7 @@ function openModal(id){
   curRow=DATA.find(d=>d.id===id);if(!curRow)return;
   $('#modalTitle').textContent=(curRow.contractNo||curRow.blNo||'物流明细')+' · 物流明细';
   const body=$('#modalBody');body.innerHTML='';
+  renderShipTrack(curRow);
   const groupOf={};GROUPS.forEach(([g,keys])=>keys.forEach(k=>groupOf[k]=g));
   const groupMap={};GROUPS.forEach(([g])=>groupMap[g]=[]);
   const others=[];
