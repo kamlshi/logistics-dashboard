@@ -475,7 +475,7 @@ function badge(s){const label=STATUS_LABEL[s]||String(s||'—');return '<span cl
 /* ============ 明细分组（与腾讯文档表头 1:1，key 精确匹配 allCols.key） ============ */
 const GROUPS=[
   ['订单与单证',['contractNo','blNo','carrier','shipCompany','releaseType','reportNo']],
-  ['港口与船期',['shipper','destination','transitPort','etdShipper','etaTransit','etdTransit','etaDest','vessel']],
+  ['港口与船期',['shipper','destination','transitPort','etdShipper','etaTransit','etdTransit','etaDest','vessel','transitVessel']],
   ['集装箱与货物',['containerNo','containerType','containerCount','packages','cargoName','quantity','unit','netWeight','grossWeight']],
   ['结算与放行',['unitPrice','totalPrice','currency','releaseTime','actualRelease','receiptDate','releaseExec']],
   ['其他',['status','transportMode','notes']]
@@ -483,13 +483,18 @@ const GROUPS=[
 
 /* ============ 船舶位置追踪（轻量版：航线示意 + 跳转船讯网查船名） ============ */
 const SHIPXY_HOME='https://www.shipxy.com/';
-/* 选择查询船名：有中转港时以「中转船名」为准，否则用主航次 vessel */
+/* 纯船名：去掉 V.航次 后缀（OOCL AMERICA V.199N -> OOCL AMERICA），供船讯网搜索用 */
+function pureShipName(name){
+  return String(name||'').trim().replace(/\s+V\.?[A-Za-z0-9-]+.*$/i,'').trim();
+}
+/* 选择查询船名：优先专用「中转船名航次」列；无该列时回落到旧的通用键；再无则用主航次 vessel */
 function pickTrackVessel(row){
   const val=k=>{const c=(row.allCols||[]).find(x=>x.key===k||x.label===k);return c&&c.value&&String(c.value).trim()!=='N/A'?String(c.value).trim():'';};
-  const hasTransit=val('transitPort')!=='';
-  const tv=val('transitVessel')||val('中转船名')||val('二程船名')||val('二程船');
-  if(hasTransit&&tv)return{name:tv,via:'中转港 '+val('transitPort'),source:'中转船'};
-  return{name:val('vessel'),via:hasTransit?'经 '+val('transitPort'):'直达',source:'主航次'};
+  const port=val('transitPort');
+  // 以「中转船名航次」专属列为准（即使中转港列未填，二程船名本身即代表以中转船为准）
+  const tv=val('transitVessel')||val('中转船名航次')||val('中转船名')||val('二程船名')||val('二程船');
+  if(tv)return{name:tv,via:port?'中转港 '+port:'二程船',source:'中转船'};
+  return{name:val('vessel'),via:port?'经 '+port:'直达',source:'主航次'};
 }
 /* SVG 航线节点示意：启运港 →（中转港）→ 目的港；纯示意非真实底图 */
 function routeSvg(row){
@@ -515,7 +520,8 @@ function routeSvg(row){
 function renderShipTrack(row){
   const body=$('#modalBody');if(!body)return;
   const v=pickTrackVessel(row);
-  const hasName=!!v.name;
+  const pure=pureShipName(v.name);           // 船讯网查询用纯船名（已去除 V.航次）
+  const hasName=!!pure;
   const box=document.createElement('div');box.className='shiptrack';box.id='shipTrackBox';
   const route=routeSvg(row);
   box.innerHTML=
@@ -524,24 +530,25 @@ function renderShipTrack(row){
     (route?'<div class="st-map">'+route+'</div>':'')+
     '<div class="st-info">'+
       (hasName
-        ?'<div class="st-name" id="trackShipName" title="点击复制船名">'+esc(v.name)+'<span class="copy">复制</span></div>'+
-         '<div class="st-meta">查询船名（'+esc(v.source)+'）· '+esc(v.via)+'</div>'
-        :'<div class="st-empty">本单暂无可查询的船名（中转港 / 船名航次均为空）</div>')+
+        ?'<div class="st-name" id="trackShipName" title="点击复制纯船名">'+esc(pure)+'<span class="copy">复制</span></div>'+
+         '<div class="st-meta">查询船名（'+esc(v.source)+'）· '+esc(v.via)+
+           (pure!==v.name?' · <b>航次 '+esc(v.name.slice(pure.length).trim())+'</b>':'')+'</div>'
+        :'<div class="st-empty">本单暂无可查询的船名（中转船名航次 / 船名航次均为空）</div>')+
     '</div>'+
     '<div class="st-actions">'+
       '<button class="st-btn primary" id="openShipxy"'+(hasName?'':' disabled')+'>在船讯网查看实时船位 ↗</button>'+
       '<button class="st-btn ghost" id="copyShipName"'+(hasName?'':' disabled')+'>复制船名</button>'+
     '</div>'+
-    '<div class="st-tip">点击后自动复制船名并打开船讯网，粘贴到搜索框即可查看实时地图位置。有中转港时已优先使用中转船名。</div>';
+    '<div class="st-tip">点击后自动复制纯船名（已去除 V.航次后缀）并打开船讯网，粘贴到搜索框即可查看实时地图位置。有二程船时以中转船名为准。</div>';
   body.insertBefore(box,body.firstChild);
   if(!hasName)return;
-  const copy=()=>copyText(v.name);
-  $('#trackShipName').addEventListener('click',()=>{copy();toast('船名已复制：'+v.name);});
-  $('#copyShipName').addEventListener('click',()=>{copy();toast('船名已复制：'+v.name);});
+  const copy=()=>copyText(pure);
+  $('#trackShipName').addEventListener('click',()=>{copy();toast('纯船名已复制：'+pure);});
+  $('#copyShipName').addEventListener('click',()=>{copy();toast('纯船名已复制：'+pure);});
   $('#openShipxy').addEventListener('click',()=>{
     copy();
     window.open(SHIPXY_HOME,'_blank','noopener');
-    toast('船名已复制，粘贴到船讯网搜索框：'+v.name);
+    toast('纯船名已复制，粘贴到船讯网搜索框：'+pure);
   });
 }
 function copyText(t){
